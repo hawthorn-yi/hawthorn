@@ -1,5 +1,6 @@
 -- ============================================================
--- Project Progress - 完整迁移脚本 (多用户认证+权限)
+-- Project Progress - 完整迁移脚本 (多用户认证+权限) v2
+-- 修复了 RLS 无限递归问题
 -- 在 Supabase Dashboard SQL Editor 中执行:
 -- https://todyqybjiwgnxfevqisl.supabase.co → SQL Editor
 -- ============================================================
@@ -109,7 +110,21 @@ BEGIN
   END IF;
 END $$;
 
--- 9. 启用 RLS
+-- 9. 创建 is_admin() 安全函数（避免 RLS 递归）
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM user_roles 
+    WHERE user_id = auth.uid() AND role = 'admin'
+  );
+$$;
+
+-- 10. 启用 RLS
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE progress_entries ENABLE ROW LEVEL SECURITY;
@@ -119,14 +134,40 @@ ALTER TABLE email_verifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE password_reset_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
 
--- 10. 删除旧的匿名访问策略
+-- 11. 删除旧的策略（如果存在）
 DROP POLICY IF EXISTS "anon_full_access" ON tasks;
 DROP POLICY IF EXISTS "anon_full_access" ON categories;
+DROP POLICY IF EXISTS "admin_all_access_tasks" ON tasks;
+DROP POLICY IF EXISTS "owner_all_access_tasks" ON tasks;
+DROP POLICY IF EXISTS "member_view_tasks" ON tasks;
+DROP POLICY IF EXISTS "member_update_tasks" ON tasks;
+DROP POLICY IF EXISTS "admin_all_access_categories" ON categories;
+DROP POLICY IF EXISTS "authenticated_read_categories" ON categories;
+DROP POLICY IF EXISTS "authenticated_insert_categories" ON categories;
+DROP POLICY IF EXISTS "admin_all_access_entries" ON progress_entries;
+DROP POLICY IF EXISTS "owner_access_entries" ON progress_entries;
+DROP POLICY IF EXISTS "member_read_entries" ON progress_entries;
+DROP POLICY IF EXISTS "member_insert_entries" ON progress_entries;
+DROP POLICY IF EXISTS "admin_all_access_attachments" ON attachments;
+DROP POLICY IF EXISTS "owner_access_attachments" ON attachments;
+DROP POLICY IF EXISTS "member_read_attachments" ON attachments;
+DROP POLICY IF EXISTS "member_insert_attachments" ON attachments;
+DROP POLICY IF EXISTS "admin_all_access_pm" ON project_members;
+DROP POLICY IF EXISTS "owner_access_pm" ON project_members;
+DROP POLICY IF EXISTS "member_read_pm" ON project_members;
+DROP POLICY IF EXISTS "user_read_own_role" ON user_roles;
+DROP POLICY IF EXISTS "admin_all_access_roles" ON user_roles;
+DROP POLICY IF EXISTS "allow_insert_user_roles" ON user_roles;
+DROP POLICY IF EXISTS "anon_insert_verifications" ON email_verifications;
+DROP POLICY IF EXISTS "anon_select_verifications" ON email_verifications;
+DROP POLICY IF EXISTS "anon_update_verifications" ON email_verifications;
+DROP POLICY IF EXISTS "anon_insert_reset_tokens" ON password_reset_tokens;
+DROP POLICY IF EXISTS "anon_select_reset_tokens" ON password_reset_tokens;
 
--- 11. tasks 表的 RLS 策略
+-- 12. tasks 表的 RLS 策略
 CREATE POLICY "admin_all_access_tasks" ON tasks FOR ALL
-  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'))
-  WITH CHECK (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'));
+  USING (is_admin())
+  WITH CHECK (is_admin());
 
 CREATE POLICY "owner_all_access_tasks" ON tasks FOR ALL
   USING (owner_id = auth.uid())
@@ -138,10 +179,10 @@ CREATE POLICY "member_view_tasks" ON tasks FOR SELECT
 CREATE POLICY "member_update_tasks" ON tasks FOR UPDATE
   USING (EXISTS (SELECT 1 FROM project_members WHERE task_id = tasks.id AND user_id = auth.uid() AND role IN ('member', 'owner')));
 
--- 12. categories 表的 RLS 策略
+-- 13. categories 表的 RLS 策略
 CREATE POLICY "admin_all_access_categories" ON categories FOR ALL
-  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'))
-  WITH CHECK (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'));
+  USING (is_admin())
+  WITH CHECK (is_admin());
 
 CREATE POLICY "authenticated_read_categories" ON categories FOR SELECT
   USING (auth.uid() IS NOT NULL);
@@ -149,9 +190,9 @@ CREATE POLICY "authenticated_read_categories" ON categories FOR SELECT
 CREATE POLICY "authenticated_insert_categories" ON categories FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL);
 
--- 13. progress_entries 表的 RLS 策略
+-- 14. progress_entries 表的 RLS 策略
 CREATE POLICY "admin_all_access_entries" ON progress_entries FOR ALL
-  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'));
+  USING (is_admin());
 
 CREATE POLICY "owner_access_entries" ON progress_entries FOR ALL
   USING (EXISTS (SELECT 1 FROM tasks WHERE id = progress_entries.task_id AND owner_id = auth.uid()));
@@ -164,9 +205,9 @@ CREATE POLICY "member_insert_entries" ON progress_entries FOR INSERT
   WITH CHECK (EXISTS (SELECT 1 FROM tasks t JOIN project_members pm ON t.id = pm.task_id
     WHERE t.id = progress_entries.task_id AND pm.user_id = auth.uid() AND pm.role IN ('member', 'owner')));
 
--- 14. attachments 表的 RLS 策略
+-- 15. attachments 表的 RLS 策略
 CREATE POLICY "admin_all_access_attachments" ON attachments FOR ALL
-  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'));
+  USING (is_admin());
 
 CREATE POLICY "owner_access_attachments" ON attachments FOR ALL
   USING (EXISTS (SELECT 1 FROM tasks WHERE id = attachments.task_id AND owner_id = auth.uid()));
@@ -179,9 +220,9 @@ CREATE POLICY "member_insert_attachments" ON attachments FOR INSERT
   WITH CHECK (EXISTS (SELECT 1 FROM tasks t JOIN project_members pm ON t.id = pm.task_id
     WHERE t.id = attachments.task_id AND pm.user_id = auth.uid() AND pm.role IN ('member', 'owner')));
 
--- 15. project_members 表的 RLS 策略
+-- 16. project_members 表的 RLS 策略
 CREATE POLICY "admin_all_access_pm" ON project_members FOR ALL
-  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'));
+  USING (is_admin());
 
 CREATE POLICY "owner_access_pm" ON project_members FOR ALL
   USING (EXISTS (SELECT 1 FROM tasks WHERE id = project_members.task_id AND owner_id = auth.uid()));
@@ -190,30 +231,33 @@ CREATE POLICY "member_read_pm" ON project_members FOR SELECT
   USING (EXISTS (SELECT 1 FROM tasks t JOIN project_members pm2 ON t.id = pm2.task_id
     WHERE t.id = project_members.task_id AND pm2.user_id = auth.uid()));
 
--- 16. email_verifications 表的 RLS 策略
+-- 17. user_roles 表的 RLS 策略（关键：避免递归）
+-- 允许任何人插入（注册触发器需要）
+CREATE POLICY "allow_insert_user_roles" ON user_roles FOR INSERT WITH CHECK (true);
+
+-- 用户可以读取自己的角色
+CREATE POLICY "user_read_own_role" ON user_roles FOR SELECT
+  USING (user_id = auth.uid());
+
+-- Admin 管理所有角色（使用 is_admin() 安全函数避免递归）
+CREATE POLICY "admin_all_access_roles" ON user_roles FOR ALL
+  USING (is_admin());
+
+-- 18. email_verifications 表的 RLS 策略
 CREATE POLICY "anon_insert_verifications" ON email_verifications FOR INSERT WITH CHECK (true);
 CREATE POLICY "anon_select_verifications" ON email_verifications FOR SELECT USING (true);
 CREATE POLICY "anon_update_verifications" ON email_verifications FOR UPDATE USING (true);
 
--- 17. password_reset_tokens 表的 RLS 策略
+-- 19. password_reset_tokens 表的 RLS 策略
 CREATE POLICY "anon_insert_reset_tokens" ON password_reset_tokens FOR INSERT WITH CHECK (true);
 CREATE POLICY "anon_select_reset_tokens" ON password_reset_tokens FOR SELECT USING (true);
 
--- 18. user_roles 表的 RLS 策略
-CREATE POLICY "user_read_own_role" ON user_roles FOR SELECT
-  USING (user_id = auth.uid());
-
-CREATE POLICY "admin_all_access_roles" ON user_roles FOR ALL
-  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'));
-
-CREATE POLICY "anon_insert_roles" ON user_roles FOR INSERT WITH CHECK (true);
-
--- 19. 启用 Realtime
+-- 20. 启用 Realtime
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE progress_entries; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE attachments; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE project_members; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- 20. 创建索引
+-- 21. 创建索引
 CREATE INDEX IF NOT EXISTS idx_tasks_owner_id ON tasks(owner_id);
 CREATE INDEX IF NOT EXISTS idx_progress_entries_task_id ON progress_entries(task_id);
 CREATE INDEX IF NOT EXISTS idx_attachments_task_id ON attachments(task_id);
@@ -222,11 +266,12 @@ CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_i
 CREATE INDEX IF NOT EXISTS idx_email_verifications_email ON email_verifications(email);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
 
--- 21. 第一个注册的用户自动成为 admin
+-- 22. 第一个注册的用户自动成为 admin
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = ''
 AS $$
 BEGIN
   IF (SELECT COUNT(*) FROM user_roles) = 0 THEN
@@ -240,17 +285,13 @@ BEGIN
 END;
 $$;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.triggers WHERE trigger_name = 'on_auth_user_created') THEN
-    CREATE TRIGGER on_auth_user_created
-      AFTER INSERT ON auth.users
-      FOR EACH ROW
-      EXECUTE FUNCTION handle_new_user();
-  END IF;
-END $$;
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION handle_new_user();
 
--- 22. 自动确认新注册用户的邮箱（绕过邮件验证）
+-- 23. 自动确认新注册用户的邮箱（绕过邮件验证）
 CREATE OR REPLACE FUNCTION auto_confirm_email()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -266,12 +307,11 @@ BEGIN
 END;
 $$;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.triggers WHERE trigger_name = 'on_auth_user_created_confirm') THEN
-    CREATE TRIGGER on_auth_user_created_confirm
-      AFTER INSERT ON auth.users
-      FOR EACH ROW
-      EXECUTE FUNCTION auto_confirm_email();
-  END IF;
-END $$;
+DROP TRIGGER IF EXISTS on_auth_user_created_confirm ON auth.users;
+CREATE TRIGGER on_auth_user_created_confirm
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION auto_confirm_email();
+
+-- 验证
+SELECT '迁移完成！所有表和策略已就绪。' AS status;
