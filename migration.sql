@@ -249,3 +249,29 @@ BEGIN
       EXECUTE FUNCTION handle_new_user();
   END IF;
 END $$;
+
+-- 22. 自动确认新注册用户的邮箱（绕过邮件验证）
+CREATE OR REPLACE FUNCTION auto_confirm_email()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  UPDATE auth.users
+  SET email_confirmed_at = NOW(),
+      confirmed_at = NOW()
+  WHERE id = NEW.id;
+  RETURN NEW;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.triggers WHERE trigger_name = 'on_auth_user_created_confirm') THEN
+    CREATE TRIGGER on_auth_user_created_confirm
+      AFTER INSERT ON auth.users
+      FOR EACH ROW
+      EXECUTE FUNCTION auto_confirm_email();
+  END IF;
+END $$;
