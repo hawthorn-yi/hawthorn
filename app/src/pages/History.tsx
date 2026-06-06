@@ -72,7 +72,7 @@ export default function HistoryPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const digest = useDailyDigest();
-  const { tasks } = useTaskManager();
+  const { tasks, followUpTasks } = useTaskManager();
   const taskIdFromUrl = searchParams.get("taskId");
 
   const [selectedTaskId, setSelectedTaskId] = useState<string>("all");
@@ -156,7 +156,7 @@ export default function HistoryPage() {
   }, [selectedTaskId, tasks]);
 
   return (
-    <Layout dailyDigestEnabled={digest.enabled} onToggleDigest={digest.toggleEnabled} onNewTask={() => { }}>
+    <Layout dailyDigestEnabled={digest.enabled} onToggleDigest={digest.toggleEnabled} onNewTask={() => { }} followUpCount={followUpTasks().length}>
       <div className="max-w-[1280px] mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
           <div>

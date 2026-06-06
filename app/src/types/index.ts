@@ -26,6 +26,9 @@ export interface Task {
   history: ProgressEntry[];
   attachments?: Attachment[];
   sort_order: number;
+  owner_id?: string;
+  assignee_id?: string;
+  assignee_username?: string;
 }
 
 export interface CustomCategory {
@@ -41,3 +44,13 @@ export const DEFAULT_CATEGORIES: CustomCategory[] = [
 ];
 
 export type FilterType = "all" | "in-progress" | "completed" | "overdue";
+
+// ─── Project Members ───
+export interface ProjectMember {
+  id: string;
+  task_id: string;
+  user_id: string;
+  role: "owner" | "member";
+  username?: string; // Joined from app_users
+  created_at?: string;
+}

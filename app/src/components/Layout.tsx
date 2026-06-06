@@ -12,9 +12,10 @@ import {
   FileJson,
   FileSpreadsheet,
   User,
-  LogOut,
+  UserCog,
   Shield,
   ChevronDown,
+  ClipboardList,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import Sidebar from "./Sidebar";
@@ -29,6 +30,7 @@ interface LayoutProps {
   onExportJSON?: () => void;
   onExportExcel?: () => void;
   onImport?: () => void;
+  followUpCount?: number;
 }
 
 export default function Layout({
@@ -39,6 +41,7 @@ export default function Layout({
   onExportJSON,
   onExportExcel,
   onImport,
+  followUpCount = 0,
 }: LayoutProps) {
   const navigate = useNavigate();
   const { user, logout, isAdmin } = useAuth();
@@ -87,6 +90,7 @@ export default function Layout({
         onMobileClose={() => setMobileSidebarOpen(false)}
         isMobile={isMobile}
         isAdmin={isAdmin}
+        followUpCount={followUpCount}
       />
 
       {/* Main Content Area */}
@@ -117,6 +121,20 @@ export default function Layout({
               <span className="text-[#1E293B] font-bold text-sm tracking-tight">项目进度</span>
             </button>
 
+            {/* Follow-up count badge in top bar */}
+            {followUpCount > 0 && (
+              <button
+                onClick={() => navigate("/follow-up")}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-[#EFF6FF] rounded-full text-xs font-medium text-[#2563EB] hover:bg-[#DBEAFE] transition-colors cursor-pointer"
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+                <span>跟进任务</span>
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-[#3B82F6] text-white text-[0.625rem] font-bold">
+                  {followUpCount}
+                </span>
+              </button>
+            )}
+
             {/* Search placeholder */}
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-[#F1F5F9] rounded-lg text-sm text-[#94A3B8]">
               <Search className="w-4 h-4" />
@@ -126,6 +144,17 @@ export default function Layout({
 
           {/* Right actions */}
           <div className="flex items-center gap-1 sm:gap-2">
+            {/* Follow-up count badge for mobile */}
+            {followUpCount > 0 && (
+              <button
+                onClick={() => navigate("/follow-up")}
+                className="md:hidden flex items-center gap-1 px-2 py-1.5 bg-[#EFF6FF] rounded-full text-xs font-medium text-[#2563EB] hover:bg-[#DBEAFE] transition-colors cursor-pointer min-w-[36px] min-h-[36px] justify-center"
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+                <span className="text-[0.625rem] font-bold">{followUpCount}</span>
+              </button>
+            )}
+
             {/* Import */}
             {onImport && (
               <button
@@ -242,6 +271,14 @@ export default function Layout({
                           {user.role === "admin" ? "管理员" : "普通用户"}
                         </p>
                       </div>
+                      {/* Account Management */}
+                      <button
+                        onClick={() => { setUserMenuOpen(false); navigate("/account"); }}
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#334155] transition-colors cursor-pointer"
+                      >
+                        <UserCog className="w-4 h-4 text-[#64748B]" />
+                        账户管理
+                      </button>
                       {isAdmin && (
                         <button
                           onClick={() => { setUserMenuOpen(false); navigate("/admin"); }}
@@ -255,7 +292,7 @@ export default function Layout({
                         onClick={handleLogout}
                         className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-[#EF4444] hover:bg-[#FFF1F2] transition-colors cursor-pointer"
                       >
-                        <LogOut className="w-4 h-4" />
+                        <User className="w-4 h-4" />
                         退出登录
                       </button>
                     </motion.div>

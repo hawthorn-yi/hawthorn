@@ -8,6 +8,8 @@ import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Admin from "./pages/Admin";
+import Account from "./pages/Account";
+import FollowUp from "./pages/FollowUp";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -71,6 +73,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Admin />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/account"
+        element={
+          <ProtectedRoute>
+            <Account />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/follow-up"
+        element={
+          <ProtectedRoute>
+            <FollowUp />
           </ProtectedRoute>
         }
       />

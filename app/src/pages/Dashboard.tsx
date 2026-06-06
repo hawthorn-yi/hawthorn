@@ -5,7 +5,8 @@ import {
   Inbox, TrendingUp, Check, AlertTriangle, Search, Bell, X,
   Plus, Pencil, Trash2, History, Calendar, Clock, ChevronDown,
   ChevronRight, OctagonX, Paperclip, FileText, SlidersHorizontal,
-  GripVertical, Download, Upload, Undo2, Eye, RefreshCw,
+  GripVertical, Download, Upload, Undo2, Eye, RefreshCw, Crown,
+  User,
 } from "lucide-react";
 import type { DragEndEvent } from "@dnd-kit/core";
 import {
@@ -24,10 +25,11 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Task, FilterType } from "@/types";
+import type { Task, FilterType, ProjectMember } from "@/types";
 import { useTaskManager } from "@/hooks/useTaskManager";
 import { useDailyDigest } from "@/hooks/useDailyDigest";
 import Layout from "@/components/Layout";
+import MemberSelector from "@/components/MemberSelector";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
@@ -164,10 +166,11 @@ function DeleteModal({ task, open, onClose, onConfirm }: {
 }
 
 /* ─────────────── Sortable Task Card Wrapper ─────────────── */
-function SortableTaskCard({ task, index, allCategories, onToggleComplete, onEdit, onDelete, onHistory, onDeadlineClick, onNameClick }: {
+function SortableTaskCard({ task, index, allCategories, projectMembers, onToggleComplete, onEdit, onDelete, onHistory, onDeadlineClick, onNameClick }: {
   task: Task;
   index: number;
   allCategories: { id: string; name: string; color: string }[];
+  projectMembers: ProjectMember[];
   onToggleComplete: (id: string) => void;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
@@ -262,6 +265,26 @@ function SortableTaskCard({ task, index, allCategories, onToggleComplete, onEdit
           )}
         </div>
 
+        {/* Row 2.5: Project Members */}
+        {projectMembers.length > 0 && (
+          <div className="flex items-center gap-1.5 mt-2 ml-[28px] flex-wrap">
+            {projectMembers.map((member) => (
+              <span
+                key={member.id}
+                className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[0.625rem] font-medium ${
+                  member.role === "owner"
+                    ? "bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]"
+                    : "bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]"
+                }`}
+                title={`${member.username || member.user_id}${member.role === "owner" ? " (创建者)" : ""}`}
+              >
+                {member.role === "owner" && <Crown className="w-2.5 h-2.5" />}
+                {member.username || member.user_id}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Row 3: Progress + Actions */}
         <div className="flex items-end justify-between mt-3 ml-[28px] gap-2">
           <div className="flex flex-col gap-1.5 flex-1 min-w-0">
@@ -316,6 +339,8 @@ export default function Dashboard() {
     updateCategory, deleteCategory,
     exportData, exportExcel, importData, clearAllData,
     reorderTasks, loading, error, refreshData,
+    projectMembers, getTaskMembers, addProjectMember, removeProjectMember,
+    followUpTasks, currentUserId,
   } = useTaskManager();
   const digest = useDailyDigest();
 
@@ -343,8 +368,13 @@ export default function Dashboard() {
   const [formDeadline, setFormDeadline] = useState("");
   const [formProgress, setFormProgress] = useState<number>(0);
   const [formNote, setFormNote] = useState("");
-  const [formErrors, setFormErrors] = useState<{ name?: string; deadline?: string }>({});
+  const [formErrors, setFormErrors] = useState<{ name?: string; deadline?: string; members?: string }>({});
   const [showHistory, setShowHistory] = useState(false);
+
+  // Member management
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [formAssigneeId, setFormAssigneeId] = useState<string>("");
+  const [showMemberManager, setShowMemberManager] = useState(false);
 
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [showCategoryManageDialog, setShowCategoryManageDialog] = useState(false);
@@ -506,6 +536,8 @@ export default function Dashboard() {
     setFormNote("");
     setFormErrors({});
     setShowHistory(false);
+    setSelectedMemberIds([]);
+    setFormAssigneeId("");
     setModalOpen(true);
   };
 
@@ -519,15 +551,23 @@ export default function Dashboard() {
     setFormNote("");
     setFormErrors({});
     setShowHistory(false);
+    // Load existing members
+    const members = getTaskMembers(task.id);
+    setSelectedMemberIds(members.filter(m => m.role !== "owner").map(m => m.user_id));
+    setFormAssigneeId(task.assignee_id || "");
     setModalOpen(true);
   };
 
-  const handleSaveTask = () => {
-    const newErrors: { name?: string; deadline?: string } = {};
+  const handleSaveTask = async () => {
+    const newErrors: { name?: string; deadline?: string; members?: string } = {};
     if (!formName.trim()) newErrors.name = "请输入项目名称";
     if (!formDeadline) newErrors.deadline = "请选择截止日期";
     if (formDeadline && formCreated && formDeadline < formCreated) {
       newErrors.deadline = "截止日期不能早于创建日期";
+    }
+    // Member selection required for new tasks
+    if (!editingTask && selectedMemberIds.length === 0) {
+      newErrors.members = "请至少选择一位有权查看项目的人员";
     }
     if (Object.keys(newErrors).length > 0) {
       setFormErrors(newErrors);
@@ -548,16 +588,41 @@ export default function Dashboard() {
         deadline: formDeadline,
         progress: finalProgress,
         note: formNote,
+        assigneeId: formAssigneeId || undefined,
+        assigneeUsername: formAssigneeId
+          ? editingTask.assignee_username // keep existing if not changed via the assignee selector
+          : undefined,
       });
+
+      // Sync members: add newly selected, remove deselected
+      const existingMembers = getTaskMembers(editingTask.id);
+      const existingMemberIds = existingMembers.filter(m => m.role !== "owner").map(m => m.user_id);
+
+      // Add new members
+      for (const id of selectedMemberIds) {
+        if (!existingMemberIds.includes(id)) {
+          await addProjectMember(editingTask.id, id, "member");
+        }
+      }
+      // Remove deselected members
+      for (const member of existingMembers) {
+        if (member.role !== "owner" && !selectedMemberIds.includes(member.user_id)) {
+          await removeProjectMember(member.id);
+        }
+      }
+
       toast.success("任务已更新");
     } else {
-      addTask({
+      await addTask({
         name: formName.trim(),
         category: formCategory,
         createdDate: formCreated,
         deadline: formDeadline,
         progress: formProgress,
         note: formNote,
+        memberIds: selectedMemberIds,
+        assigneeId: formAssigneeId || undefined,
+        assigneeUsername: formAssigneeId || undefined,
       });
       toast.success("任务已创建");
     }
@@ -666,6 +731,7 @@ export default function Dashboard() {
       onExportJSON={handleExport}
       onExportExcel={handleExportExcel}
       onImport={handleImport}
+      followUpCount={followUpTasks().length}
     >
       {/* Hidden file input for import */}
       <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} />
@@ -845,6 +911,7 @@ export default function Dashboard() {
                           task={task}
                           index={index}
                           allCategories={allCategories}
+                          projectMembers={getTaskMembers(task.id)}
                           onToggleComplete={toggleComplete}
                           onEdit={openEditTask}
                           onDelete={handleDelete}
@@ -939,6 +1006,56 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
             </motion.div>
+
+            {/* Project Members */}
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[0.8125rem] font-medium text-[#64748B]">
+                  有权查看项目的人员 {!editingTask && <span className="text-[#F43F5E]">*</span>}
+                </label>
+              </div>
+              <MemberSelector
+                taskId={editingTask?.id}
+                existingMembers={editingTask ? getTaskMembers(editingTask.id) : []}
+                onMembersChange={setSelectedMemberIds}
+                onAddMember={async (userId) => {
+                  if (editingTask) {
+                    await addProjectMember(editingTask.id, userId, "member");
+                  }
+                }}
+                onRemoveMember={async (memberId) => {
+                  await removeProjectMember(memberId);
+                }}
+              />
+              {formErrors.members && <p className="text-xs text-[#F43F5E] mt-1">{formErrors.members}</p>}
+            </motion.div>
+
+            {/* Task Assignee (only in edit mode) */}
+            {editingTask && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.11 }}>
+                <label className="block text-[0.8125rem] font-medium text-[#64748B] mb-1">指派任务给</label>
+                <Select
+                  value={formAssigneeId || "__none__"}
+                  onValueChange={(v) => setFormAssigneeId(v === "__none__" ? "" : v)}
+                >
+                  <SelectTrigger className="h-11 rounded-lg px-4 text-sm bg-[#F1F5F9] border-0 focus:bg-white focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] transition-all w-full">
+                    <SelectValue placeholder="选择指派人..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">不指派</SelectItem>
+                    {getTaskMembers(editingTask.id).map((member) => (
+                      <SelectItem key={member.user_id} value={member.user_id}>
+                        <div className="flex items-center gap-2">
+                          <User className="w-3.5 h-3.5" />
+                          {member.username || member.user_id}
+                          {member.role === "owner" && <span className="text-[0.625rem] text-[#F59E0B]">创建者</span>}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </motion.div>
+            )}
 
             {/* Date Row */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="flex gap-4">

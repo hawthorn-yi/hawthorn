@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import type { Task, ProgressEntry, Attachment, CustomCategory } from "@/types";
+import type { Task, ProgressEntry, Attachment, CustomCategory, ProjectMember } from "@/types";
 import { DEFAULT_CATEGORIES } from "@/types";
 import { supabase } from "@/lib/supabase";
+import { getAuthToken } from "@/lib/auth";
 import * as XLSX from "xlsx";
 
 function generateId(): string {
@@ -21,11 +22,19 @@ function getStatus(task: Task): Task["status"] {
   return "active";
 }
 
+function getCurrentUserId(): string | null {
+  const token = getAuthToken();
+  return token?.id || null;
+}
+
 export function useTaskManager() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allCategories, setAllCategories] = useState<CustomCategory[]>(DEFAULT_CATEGORIES);
+  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const currentUserId = getCurrentUserId();
 
   // ─── Fetch all data from Supabase ───
   const fetchAllData = useCallback(async () => {
@@ -36,7 +45,18 @@ export function useTaskManager() {
         .select("*")
         .order("created_at", { ascending: true });
 
-      // Fetch tasks ordered by sort_order
+      // Fetch project members
+      const { data: members } = await supabase
+        .from("project_members")
+        .select("*");
+
+      // Get the list of task IDs the current user is a member of
+      const userId = getCurrentUserId();
+      const memberTaskIds = userId
+        ? (members || []).filter((m) => m.user_id === userId).map((m) => m.task_id)
+        : [];
+
+      // Fetch tasks - all tasks for now, filtering done client-side for visibility
       const { data: rawTasks } = await supabase
         .from("tasks")
         .select("*")
@@ -53,6 +73,25 @@ export function useTaskManager() {
         .from("attachments")
         .select("*");
 
+      // Fetch app_users for member name resolution
+      const { data: appUsers } = await supabase
+        .from("app_users")
+        .select("id, username");
+
+      const userMap = new Map<string, string>();
+      (appUsers || []).forEach((u) => userMap.set(u.id, u.username));
+
+      // Enrich project members with usernames
+      const enrichedMembers: ProjectMember[] = (members || []).map((m) => ({
+        id: m.id,
+        task_id: m.task_id,
+        user_id: m.user_id,
+        role: m.role,
+        username: userMap.get(m.user_id) || m.user_id,
+        created_at: m.created_at,
+      }));
+      setProjectMembers(enrichedMembers);
+
       // Assemble tasks with nested history and attachments
       const assembledTasks: Task[] = (rawTasks || []).map((t, i) => ({
         id: t.id,
@@ -63,6 +102,9 @@ export function useTaskManager() {
         progress: t.progress,
         status: t.status,
         sort_order: t.sort_order ?? i,
+        owner_id: t.owner_id,
+        assignee_id: t.assignee_id,
+        assignee_username: t.assignee_username || userMap.get(t.assignee_id || "") || undefined,
         history: (entries || [])
           .filter((e) => e.task_id === t.id)
           .map((e) => ({
@@ -88,7 +130,13 @@ export function useTaskManager() {
         status: getStatus(t),
       }));
 
-      setTasks(updatedTasks);
+      // Filter tasks: if user is logged in, only show tasks they're a member of
+      // If no user or no project_members exist (legacy), show all tasks
+      const filteredTasks = userId && (members || []).length > 0
+        ? updatedTasks.filter((t) => memberTaskIds.includes(t.id))
+        : updatedTasks;
+
+      setTasks(filteredTasks);
 
       if (cats && cats.length > 0) {
         setAllCategories(cats.map((c) => ({ id: c.id, name: c.name, color: c.color })));
@@ -116,6 +164,7 @@ export function useTaskManager() {
     let catsChannel: ReturnType<typeof supabase.channel> | null = null;
     let entriesChannel: ReturnType<typeof supabase.channel> | null = null;
     let attsChannel: ReturnType<typeof supabase.channel> | null = null;
+    let membersChannel: ReturnType<typeof supabase.channel> | null = null;
 
     try {
       tasksChannel = supabase
@@ -153,6 +202,15 @@ export function useTaskManager() {
           () => fetchAllData()
         )
         .subscribe();
+
+      membersChannel = supabase
+        .channel("project-members-realtime")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "project_members" },
+          () => fetchAllData()
+        )
+        .subscribe();
     } catch {
       // Realtime not available — app still works without live sync
     }
@@ -162,8 +220,48 @@ export function useTaskManager() {
       if (catsChannel) supabase.removeChannel(catsChannel);
       if (entriesChannel) supabase.removeChannel(entriesChannel);
       if (attsChannel) supabase.removeChannel(attsChannel);
+      if (membersChannel) supabase.removeChannel(membersChannel);
     };
   }, [fetchAllData]);
+
+  // ─── Project Member helpers ───
+  const getTaskMembers = useCallback((taskId: string): ProjectMember[] => {
+    return projectMembers.filter((m) => m.task_id === taskId);
+  }, [projectMembers]);
+
+  const addProjectMember = useCallback(async (taskId: string, userId: string, role: "owner" | "member" = "member", username?: string) => {
+    const pmId = generateId();
+    const newMember: ProjectMember = {
+      id: pmId,
+      task_id: taskId,
+      user_id: userId,
+      role,
+      username,
+    };
+
+    setProjectMembers((prev) => [...prev, newMember]);
+
+    await supabase.from("project_members").insert({
+      id: pmId,
+      task_id: taskId,
+      user_id: userId,
+      role,
+    });
+
+    return newMember;
+  }, []);
+
+  const removeProjectMember = useCallback(async (memberId: string) => {
+    setProjectMembers((prev) => prev.filter((m) => m.id !== memberId));
+    await supabase.from("project_members").delete().eq("id", memberId);
+  }, []);
+
+  const updateProjectMemberRole = useCallback(async (memberId: string, role: "owner" | "member") => {
+    setProjectMembers((prev) =>
+      prev.map((m) => (m.id === memberId ? { ...m, role } : m))
+    );
+    await supabase.from("project_members").update({ role }).eq("id", memberId);
+  }, []);
 
   // ─── CRUD Operations ───
 
@@ -174,12 +272,16 @@ export function useTaskManager() {
     deadline: string;
     progress: number;
     note?: string;
+    memberIds?: string[];
+    assigneeId?: string;
+    assigneeUsername?: string;
   }): Promise<Task> => {
     const taskId = generateId();
     const entryId = generateId();
     const now = new Date().toISOString();
+    const userId = getCurrentUserId();
 
-    // Assign sort_order: highest existing + 1, so new tasks appear at bottom in manual mode
+    // Assign sort_order: highest existing + 1
     const maxOrder = tasks.reduce((max, t) => Math.max(max, t.sort_order), -1);
 
     const task: Task = {
@@ -199,6 +301,9 @@ export function useTaskManager() {
       }],
       attachments: [],
       sort_order: maxOrder + 1,
+      owner_id: userId || undefined,
+      assignee_id: data.assigneeId,
+      assignee_username: data.assigneeUsername,
     };
     task.status = getStatus(task);
 
@@ -215,6 +320,9 @@ export function useTaskManager() {
       progress: data.progress,
       status: task.status,
       sort_order: task.sort_order,
+      owner_id: userId || undefined,
+      assignee_id: data.assigneeId || null,
+      assignee_username: data.assigneeUsername || null,
     });
 
     await supabase.from("progress_entries").insert({
@@ -225,8 +333,34 @@ export function useTaskManager() {
       note: data.note || "创建任务",
     });
 
+    // Add project members
+    if (userId) {
+      await supabase.from("project_members").insert({
+        id: generateId(),
+        task_id: taskId,
+        user_id: userId,
+        role: "owner",
+      });
+    }
+
+    if (data.memberIds && data.memberIds.length > 0) {
+      for (const memberId of data.memberIds) {
+        if (memberId !== userId) {
+          await supabase.from("project_members").insert({
+            id: generateId(),
+            task_id: taskId,
+            user_id: memberId,
+            role: "member",
+          });
+        }
+      }
+    }
+
+    // Refresh to get proper member list
+    await fetchAllData();
+
     return task;
-  }, []);
+  }, [fetchAllData]);
 
   const updateTask = useCallback(async (taskId: string, data: {
     name?: string;
@@ -235,6 +369,8 @@ export function useTaskManager() {
     deadline?: string;
     progress?: number;
     note?: string;
+    assigneeId?: string;
+    assigneeUsername?: string;
   }): Promise<Task | null> => {
     let result: Task | null = null;
 
@@ -246,9 +382,8 @@ export function useTaskManager() {
         if (data.category !== undefined) updated.category = data.category;
         if (data.createdDate !== undefined) updated.createdDate = data.createdDate;
         if (data.deadline !== undefined) updated.deadline = data.deadline;
-
-        const hasNote = data.note !== undefined && data.note.trim() !== "";
-        const progressChanged = data.progress !== undefined && data.progress !== task.progress;
+        if (data.assigneeId !== undefined) updated.assignee_id = data.assigneeId;
+        if (data.assigneeUsername !== undefined) updated.assignee_username = data.assigneeUsername;
 
         if (data.progress !== undefined) {
           updated.progress = Math.max(0, Math.min(100, data.progress));
@@ -266,6 +401,8 @@ export function useTaskManager() {
     if (data.createdDate !== undefined) updatePayload.created_date = data.createdDate;
     if (data.deadline !== undefined) updatePayload.deadline = data.deadline;
     if (data.progress !== undefined) updatePayload.progress = Math.max(0, Math.min(100, data.progress));
+    if (data.assigneeId !== undefined) updatePayload.assignee_id = data.assigneeId;
+    if (data.assigneeUsername !== undefined) updatePayload.assignee_username = data.assigneeUsername;
     if (result) updatePayload.status = result.status;
     updatePayload.updated_at = new Date().toISOString();
 
@@ -289,7 +426,6 @@ export function useTaskManager() {
         note: hasNote ? data.note!.trim() : `进度更新至 ${newProgress}%`,
       };
 
-      // Optimistic history update
       setTasks((prev) =>
         prev.map((t) => {
           if (t.id !== taskId) return t;
@@ -434,18 +570,16 @@ export function useTaskManager() {
       note: "项目已恢复",
     });
 
+    return result;
   }, [tasks]);
 
   const deleteHistoryEntry = useCallback(async (taskId: string, entryId: string) => {
-    // Optimistic: remove entry from local state
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id !== taskId) return t;
         return { ...t, history: t.history.filter((h) => h.id !== entryId) };
       })
     );
-
-    // Delete from Supabase
     await supabase.from("progress_entries").delete().eq("id", entryId).eq("task_id", taskId);
   }, []);
 
@@ -456,13 +590,11 @@ export function useTaskManager() {
       color,
     };
     setAllCategories((prev) => [...prev, newCat]);
-
     await supabase.from("categories").insert({
       id: newCat.id,
       name,
       color,
     });
-
     return newCat;
   }, []);
 
@@ -473,7 +605,6 @@ export function useTaskManager() {
         return { ...cat, ...data };
       })
     );
-
     await supabase.from("categories").update(data).eq("id", categoryId);
   }, []);
 
@@ -488,7 +619,6 @@ export function useTaskManager() {
         setTasks((prev) =>
           prev.map((t) => (t.category === categoryId ? { ...t, category: fallbackId } : t))
         );
-        // Update all affected tasks in Supabase
         for (const t of tasksUsing) {
           await supabase.from("tasks").update({ category: fallbackId }).eq("id", t.id);
         }
@@ -515,10 +645,7 @@ export function useTaskManager() {
     setTasks((prev) =>
       prev.map((task) => {
         if (task.id !== taskId) return task;
-        return {
-          ...task,
-          attachments: [...(task.attachments || []), attachment],
-        };
+        return { ...task, attachments: [...(task.attachments || []), attachment] };
       })
     );
 
@@ -535,13 +662,9 @@ export function useTaskManager() {
     setTasks((prev) =>
       prev.map((task) => {
         if (task.id !== taskId) return task;
-        return {
-          ...task,
-          attachments: (task.attachments || []).filter((a) => a.id !== attachmentId),
-        };
+        return { ...task, attachments: (task.attachments || []).filter((a) => a.id !== attachmentId) };
       })
     );
-
     await supabase.from("attachments").delete().eq("id", attachmentId);
   }, []);
 
@@ -583,18 +706,12 @@ export function useTaskManager() {
   }, [tasks, allCategories]);
 
   const exportExcel = useCallback((): void => {
-    // Build flat data for Excel export
     const rows: Record<string, unknown>[] = [];
-
     tasks.forEach((task) => {
       const categoryInfo = allCategories.find((c) => c.id === task.category);
       const statusLabels: Record<string, string> = {
-        active: "进行中",
-        completed: "已完成",
-        overdue: "已逾期",
-        terminated: "已终止",
+        active: "进行中", completed: "已完成", overdue: "已逾期", terminated: "已终止",
       };
-
       rows.push({
         "任务名称": task.name,
         "分类": categoryInfo?.name || task.category,
@@ -602,6 +719,7 @@ export function useTaskManager() {
         "进度(%)": task.progress,
         "创建日期": task.createdDate,
         "截止日期": task.deadline,
+        "指派人": task.assignee_username || "-",
         "更新记录数": task.history.length,
         "附件数": task.attachments?.length || 0,
         "最后更新": task.history.length > 0
@@ -610,7 +728,6 @@ export function useTaskManager() {
       });
     });
 
-    // Also export progress history in a separate sheet (optional, for detailed analysis)
     const historyRows: Record<string, unknown>[] = [];
     tasks.forEach((task) => {
       task.history.forEach((entry) => {
@@ -626,23 +743,8 @@ export function useTaskManager() {
     const wb = XLSX.utils.book_new();
     const taskSheet = XLSX.utils.json_to_sheet(rows);
     const historySheet = XLSX.utils.json_to_sheet(historyRows);
-
-    // Set column widths
-    taskSheet["!cols"] = [
-      { wch: 30 }, // 任务名称
-      { wch: 15 }, // 分类
-      { wch: 10 }, // 状态
-      { wch: 10 }, // 进度
-      { wch: 12 }, // 创建日期
-      { wch: 12 }, // 截止日期
-      { wch: 10 }, // 更新记录数
-      { wch: 8 },  // 附件数
-      { wch: 30 }, // 最后更新
-    ];
-
     XLSX.utils.book_append_sheet(wb, taskSheet, "任务列表");
     XLSX.utils.book_append_sheet(wb, historySheet, "更新历史");
-
     const today = new Date().toISOString().split("T")[0];
     XLSX.writeFile(wb, `项目进度数据_${today}.xlsx`);
   }, [tasks, allCategories]);
@@ -651,56 +753,33 @@ export function useTaskManager() {
     try {
       const data = JSON.parse(json);
       if (!data.tasks || !Array.isArray(data.tasks)) return false;
-
-      // Insert categories
       if (data.categories && Array.isArray(data.categories)) {
         for (const cat of data.categories) {
-          await supabase.from("categories").upsert({
-            id: cat.id,
-            name: cat.name,
-            color: cat.color,
-          }, { onConflict: "id" });
+          await supabase.from("categories").upsert({ id: cat.id, name: cat.name, color: cat.color }, { onConflict: "id" });
         }
       }
-
-      // Insert tasks with history and attachments
       for (const t of data.tasks) {
         await supabase.from("tasks").upsert({
-          id: t.id,
-          name: t.name,
-          category: t.category,
-          created_date: t.createdDate,
-          deadline: t.deadline,
-          progress: t.progress,
-          status: getStatus(t),
+          id: t.id, name: t.name, category: t.category,
+          created_date: t.createdDate, deadline: t.deadline,
+          progress: t.progress, status: getStatus(t),
         }, { onConflict: "id" });
-
         if (t.history && Array.isArray(t.history)) {
           for (const h of t.history) {
             await supabase.from("progress_entries").upsert({
-              id: h.id,
-              task_id: h.taskId || t.id,
-              timestamp: h.timestamp,
-              progress: h.progress,
-              note: h.note,
+              id: h.id, task_id: h.taskId || t.id,
+              timestamp: h.timestamp, progress: h.progress, note: h.note,
             }, { onConflict: "id" });
           }
         }
-
         if (t.attachments && Array.isArray(t.attachments)) {
           for (const a of t.attachments) {
             await supabase.from("attachments").upsert({
-              id: a.id,
-              task_id: t.id,
-              name: a.name,
-              size: a.size,
-              data_url: a.dataUrl,
+              id: a.id, task_id: t.id, name: a.name, size: a.size, data_url: a.dataUrl,
             }, { onConflict: "id" });
           }
         }
       }
-
-      // Refresh from DB
       await fetchAllData();
       return true;
     } catch (e) {
@@ -712,41 +791,41 @@ export function useTaskManager() {
   const clearAllData = useCallback(async () => {
     await supabase.from("attachments").delete().neq("id", "__none__");
     await supabase.from("progress_entries").delete().neq("id", "__none__");
+    await supabase.from("project_members").delete().neq("id", "__none__");
     await supabase.from("tasks").delete().neq("id", "__none__");
     await supabase.from("categories").delete().neq("id", "__none__");
-
-    // Re-insert default categories
     for (const cat of DEFAULT_CATEGORIES) {
       await supabase.from("categories").insert({ id: cat.id, name: cat.name, color: cat.color });
     }
-
     await fetchAllData();
   }, [fetchAllData]);
 
   const reorderTasks = useCallback(async (reorderedIds: string[]) => {
-    // Optimistic update
     setTasks((prev) => {
       const taskMap = new Map(prev.map((t) => [t.id, t]));
-      return reorderedIds
-        .map((id, index) => {
-          const task = taskMap.get(id);
-          return task ? { ...task, sort_order: index } : null;
-        })
-        .filter(Boolean) as Task[];
+      return reorderedIds.map((id, index) => {
+        const task = taskMap.get(id);
+        return task ? { ...task, sort_order: index } : null;
+      }).filter(Boolean) as Task[];
     });
-
-    // Update Supabase
     for (let i = 0; i < reorderedIds.length; i++) {
-      await supabase
-        .from("tasks")
-        .update({ sort_order: i })
-        .eq("id", reorderedIds[i]);
+      await supabase.from("tasks").update({ sort_order: i }).eq("id", reorderedIds[i]);
     }
   }, []);
+
+  // ─── Follow-up tasks (assigned to current user, not completed) ───
+  const followUpTasks = useCallback((): Task[] => {
+    const userId = getCurrentUserId();
+    if (!userId) return [];
+    return tasks.filter(
+      (t) => t.assignee_id === userId && t.status !== "completed" && t.status !== "terminated"
+    );
+  }, [tasks]);
 
   return {
     tasks,
     allCategories,
+    projectMembers,
     loading,
     error,
     addTask,
@@ -768,5 +847,11 @@ export function useTaskManager() {
     reorderTasks,
     deleteHistoryEntry,
     refreshData: fetchAllData,
+    getTaskMembers,
+    addProjectMember,
+    removeProjectMember,
+    updateProjectMemberRole,
+    followUpTasks,
+    currentUserId,
   };
 }

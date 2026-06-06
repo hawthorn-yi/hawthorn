@@ -178,7 +178,7 @@ function StatCard({ label, value, color, bg, delay }: { label: string; value: nu
 /* ─────────────── Board Page ─────────────── */
 export default function Board() {
   const navigate = useNavigate();
-  const { tasks, allCategories } = useTaskManager();
+  const { tasks, allCategories, followUpTasks } = useTaskManager();
   const digest = useDailyDigest();
 
   const grouped = useMemo(() => {
@@ -200,7 +200,7 @@ export default function Board() {
   }, [tasks, allCategories]);
 
   return (
-    <Layout dailyDigestEnabled={digest.enabled} onToggleDigest={digest.toggleEnabled} onNewTask={() => navigate("/")}>
+    <Layout dailyDigestEnabled={digest.enabled} onToggleDigest={digest.toggleEnabled} onNewTask={() => navigate("/")} followUpCount={followUpTasks().length}>
       <div className="max-w-[1280px] mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-4 sm:mb-6">
           <h1 className="font-bold text-[#1E293B] tracking-tight text-[1.75rem] sm:text-[2rem] md:text-[2.5rem]" style={{ lineHeight: 1.15 }}>项目看板</h1>

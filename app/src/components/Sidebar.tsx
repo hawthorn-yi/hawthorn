@@ -12,6 +12,7 @@ import {
   ChevronRight,
   X,
   Shield,
+  ClipboardList,
 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -22,6 +23,7 @@ interface SidebarProps {
   onMobileClose: () => void;
   isMobile: boolean;
   isAdmin?: boolean;
+  followUpCount?: number;
 }
 
 const navItems = [
@@ -33,7 +35,7 @@ const navItems = [
   { path: "/settings", label: "系统设置", icon: Settings },
 ];
 
-export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose, isMobile, isAdmin }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose, isMobile, isAdmin, followUpCount = 0 }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -136,6 +138,40 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
               </button>
             );
           })}
+
+          {/* Follow-up Tasks */}
+          <button
+            onClick={() => {
+              navigate("/follow-up");
+              if (isMobile) onMobileClose();
+            }}
+            className={`
+              flex items-center gap-3 rounded-lg transition-all duration-150 cursor-pointer
+              ${collapsed && !isMobile ? "justify-center px-0 py-2.5 mt-2" : "px-3 py-2.5 mt-2"}
+              ${location.pathname === "/follow-up"
+                ? "bg-[#8B5CF6]/20 text-[#A78BFA]"
+                : "text-[#94A3B8] hover:bg-[#1E293B] hover:text-[#C4B5FD]"
+              }
+            `}
+            title={collapsed ? `跟进任务 (${followUpCount})` : undefined}
+          >
+            <ClipboardList className={`w-5 h-5 shrink-0 ${location.pathname === "/follow-up" ? "text-[#A78BFA]" : ""}`} />
+            {(!collapsed || isMobile) && (
+              <>
+                <span className={`text-sm font-medium whitespace-nowrap ${location.pathname === "/follow-up" ? "font-semibold" : ""}`}>
+                  跟进任务
+                </span>
+                {followUpCount > 0 && (
+                  <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-[#8B5CF6] text-white text-[0.625rem] font-bold">
+                    {followUpCount}
+                  </span>
+                )}
+                {followUpCount === 0 && location.pathname === "/follow-up" && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#8B5CF6]" />
+                )}
+              </>
+            )}
+          </button>
 
           {/* Admin link */}
           {isAdmin && (
