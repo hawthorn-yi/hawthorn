@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { X, UserPlus, Users, Crown, Trash2 } from "lucide-react";
+import { X, UserPlus, Crown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import type { AppUser } from "@/lib/auth";
@@ -56,7 +56,47 @@ export default function MemberSelector({
     fetchUsers();
   }, []);
 
-  const handleToggle = (userId: string, username: string) => {
+  // Build a user map for quick lookup
+  const userMap = useMemo(() => {
+    const map = new Map<string, AppUser>();
+    allUsers.forEach((u) => map.set(u.id, u));
+    return map;
+  }, [allUsers]);
+
+  // Merge existing members with newly selected (not yet saved) members
+  const displayMembers = useMemo(() => {
+    const result: Array<{ id: string; user_id: string; role: string; username: string }> = [];
+    const seen = new Set<string>();
+
+    // Existing members first
+    for (const m of existingMembers) {
+      result.push({
+        id: m.id,
+        user_id: m.user_id,
+        role: m.role,
+        username: m.username || userMap.get(m.user_id)?.username || m.user_id,
+      });
+      seen.add(m.user_id);
+    }
+
+    // Newly selected (not yet in existingMembers)
+    for (const uid of selectedIds) {
+      if (!seen.has(uid)) {
+        const u = userMap.get(uid);
+        result.push({
+          id: `new-${uid}`,
+          user_id: uid,
+          role: "member",
+          username: u?.username || uid,
+        });
+        seen.add(uid);
+      }
+    }
+
+    return result;
+  }, [existingMembers, selectedIds, userMap]);
+
+  const handleToggle = (userId: string, _username: string) => {
     const newSet = new Set(selectedIds);
     if (newSet.has(userId)) {
       newSet.delete(userId);
@@ -67,25 +107,39 @@ export default function MemberSelector({
     onMembersChange?.(Array.from(newSet));
   };
 
-  const handleRemove = (member: ProjectMember) => {
-    onRemoveMember?.(member.id);
+  const handleRemove = (member: { id: string; user_id: string }) => {
+    // If it's a new (not-yet-saved) member, just remove from selection
+    if (member.id.startsWith("new-")) {
+      const newSet = new Set(selectedIds);
+      newSet.delete(member.user_id);
+      setSelectedIds(newSet);
+      onMembersChange?.(Array.from(newSet));
+    } else {
+      // Existing member - remove via callback
+      onRemoveMember?.(member.id);
+    }
   };
 
-  const canRemove = (member: ProjectMember): boolean => {
-    // Can't remove the owner
+  const canRemove = (member: { role: string; user_id: string }): boolean => {
     if (member.role === "owner") return false;
-    // Only admin or the member themselves can remove
     if (isAdmin) return true;
     if (user && member.user_id === user.id) return true;
     return false;
   };
 
+  // Users available to add (not already selected, not current user, approved)
+  const availableUsers = useMemo(() => {
+    return allUsers.filter(
+      (u) => u.is_approved && !selectedIds.has(u.id) && u.id !== user?.id
+    );
+  }, [allUsers, selectedIds, user]);
+
   return (
     <div className="space-y-3">
-      {/* Existing Members Display */}
-      {existingMembers.length > 0 && (
+      {/* Members Display */}
+      {displayMembers.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {existingMembers.map((member) => (
+          {displayMembers.map((member) => (
             <span
               key={member.id}
               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -93,10 +147,10 @@ export default function MemberSelector({
                   ? "bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]"
                   : "bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]"
               }`}
-              title={`${member.username || member.user_id}${member.role === "owner" ? " (创建者)" : ""}`}
+              title={`${member.username}${member.role === "owner" ? " (创建者)" : ""}`}
             >
               {member.role === "owner" && <Crown className="w-3 h-3" />}
-              {member.username || member.user_id}
+              {member.username}
               {!readOnly && canRemove(member) && (
                 <button
                   onClick={(e) => { e.stopPropagation(); handleRemove(member); }}
@@ -131,41 +185,24 @@ export default function MemberSelector({
                 transition={{ duration: 0.15 }}
                 className="absolute left-0 top-full mt-1 z-20 bg-white rounded-xl border border-[#E2E8F0] shadow-[0_8px_24px_rgba(0,0,0,0.1)] py-1 min-w-[220px] max-h-[240px] overflow-y-auto"
               >
-                {allUsers
-                  .filter((u) => u.is_approved && u.id !== user?.id)
-                  .map((u) => {
-                    const isSelected = selectedIds.has(u.id);
-                    return (
-                      <button
-                        key={u.id}
-                        onClick={() => handleToggle(u.id, u.username)}
-                        className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors cursor-pointer ${
-                          isSelected
-                            ? "bg-[#EFF6FF] text-[#2563EB] font-medium"
-                            : "text-[#64748B] hover:bg-[#F8FAFC]"
-                        }`}
-                      >
-                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                          isSelected
-                            ? "bg-[#3B82F6] border-[#3B82F6]"
-                            : "border-[#CBD5E1]"
-                        }`}>
-                          {isSelected && (
-                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          )}
-                        </div>
-                        <div className="flex-1 text-left">
-                          <span>{u.username}</span>
-                          {u.role === "admin" && (
-                            <span className="ml-1.5 text-[0.625rem] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E]">管理</span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                {allUsers.filter((u) => u.is_approved && u.id !== user?.id).length === 0 && (
+                {availableUsers.map((u) => {
+                  return (
+                    <button
+                      key={u.id}
+                      onClick={() => handleToggle(u.id, u.username)}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors cursor-pointer text-[#64748B] hover:bg-[#F8FAFC]"
+                    >
+                      <div className="w-5 h-5 rounded border-2 flex items-center justify-center border-[#CBD5E1]" />
+                      <div className="flex-1 text-left">
+                        <span>{u.username}</span>
+                        {u.role === "admin" && (
+                          <span className="ml-1.5 text-[0.625rem] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E]">管理</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+                {availableUsers.length === 0 && (
                   <div className="px-4 py-3 text-xs text-[#94A3B8] text-center">
                     没有其他可用用户
                   </div>

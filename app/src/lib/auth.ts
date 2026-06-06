@@ -107,7 +107,7 @@ export async function registerUser(username: string, password: string): Promise<
   if (password.length < 4) throw new Error("密码至少需要4个字符");
 
   const passwordHash = await hashPassword(password);
-  const userId = "user-" + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+  const userId = crypto.randomUUID();
 
   const { error } = await supabase.from("app_users").insert({
     id: userId,
