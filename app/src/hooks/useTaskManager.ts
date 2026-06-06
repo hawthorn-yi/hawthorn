@@ -6,7 +6,8 @@ import { getAuthToken } from "@/lib/auth";
 import * as XLSX from "xlsx";
 
 function generateId(): string {
-  return Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+  // Use crypto.randomUUID for tables that require UUID format
+  return crypto.randomUUID();
 }
 
 function getToday(): string {
