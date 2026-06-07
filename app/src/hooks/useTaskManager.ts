@@ -429,7 +429,7 @@ export function useTaskManager() {
     if (data.progress !== undefined) updatePayload.progress = Math.max(0, Math.min(100, data.progress));
     if (data.assigneeId !== undefined) updatePayload.assignee_id = data.assigneeId;
     if (data.assigneeUsername !== undefined) updatePayload.assignee_username = data.assigneeUsername;
-    if (result) updatePayload.status = result.status;
+    if (result) updatePayload.status = (result as Task).status;
     updatePayload.updated_at = new Date().toISOString();
 
     await supabase.from("tasks").update(updatePayload).eq("id", taskId);
@@ -553,7 +553,7 @@ export function useTaskManager() {
       id: entryId,
       task_id: taskId,
       timestamp: now,
-      progress: result?.progress ?? 0,
+      progress: (result as unknown as Task | undefined)?.progress ?? 0,
       note: "项目已终止",
       username: getAuthToken()?.username,
     });
@@ -569,9 +569,9 @@ export function useTaskManager() {
     setTasks((prev) =>
       prev.map((task) => {
         if (task.id !== taskId) return task;
-        const restored = {
+        const restored: Task = {
           ...task,
-          status: "active" as const,
+          status: "active",
           history: [...task.history, {
             id: entryId,
             taskId,

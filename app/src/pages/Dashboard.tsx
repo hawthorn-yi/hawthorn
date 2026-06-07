@@ -29,6 +29,7 @@ import type { Task, FilterType, ProjectMember } from "@/types";
 import { useTaskManager } from "@/hooks/useTaskManager";
 import { useDailyDigest } from "@/hooks/useDailyDigest";
 import { supabase } from "@/lib/supabase";
+import { getAuthToken } from "@/lib/auth";
 import Layout from "@/components/Layout";
 import MemberSelector from "@/components/MemberSelector";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -179,7 +180,6 @@ function SortableTaskCard({ task, index, allCategories, projectMembers, onToggle
   onDeadlineClick: (task: Task) => void;
   onNameClick: (task: Task) => void;
 }) {
-  const navigate = useNavigate();
   const {
     attributes,
     listeners,
@@ -338,8 +338,8 @@ function SortableTaskCard({ task, index, allCategories, projectMembers, onToggle
 
 /* ═══════════════════════ MAIN DASHBOARD ═══════════════════════ */
 export default function Dashboard() {
-  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
   const {
     tasks, addTask, updateTask, deleteTask, toggleComplete,
     terminateTask, restoreTask, deleteHistoryEntry, allCategories, addCustomCategory,
@@ -348,6 +348,7 @@ export default function Dashboard() {
     reorderTasks, loading, error, refreshData,
     projectMembers, getTaskMembers, addProjectMember, removeProjectMember,
     followUpTasks, currentUserId, isAdmin,
+    addAttachment, removeAttachment, updateAttachment,
   } = useTaskManager();
   const digest = useDailyDigest();
 
@@ -381,14 +382,13 @@ export default function Dashboard() {
   // Member management
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [formAssigneeId, setFormAssigneeId] = useState<string>("");
-  const [showMemberManager, setShowMemberManager] = useState(false);
 
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [showCategoryManageDialog, setShowCategoryManageDialog] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState("#3B82F6");
 
-  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
+  const [_highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
   const [showTerminated, setShowTerminated] = useState(false);
 
   // User filter (admin only)
@@ -972,7 +972,7 @@ export default function Dashboard() {
                     </motion.div>
                   ) : (
                     filteredTasks.map((task, index) => {
-                      const borderColor = getBorderColor(task);
+                      getBorderColor(task);
 
                       return (
                         <SortableTaskCard
@@ -1598,7 +1598,8 @@ export default function Dashboard() {
                           {entry.note && (
                             <p className="text-xs text-[#64748B] leading-relaxed">{entry.note}</p>
                           )}
-                          {/* Delete button with confirmation */}
+                          {/* Delete button - only creator or admin */}
+                          {(isAdmin || (entry.username && entry.username === getAuthToken()?.username)) && (
                           <div className="flex justify-end mt-2">
                             <AlertDialog open={deleteEntryId === entry.id} onOpenChange={(open) => !open && setDeleteEntryId(null)}>
                               <AlertDialogTrigger asChild>
@@ -1635,6 +1636,7 @@ export default function Dashboard() {
                               </AlertDialogContent>
                             </AlertDialog>
                           </div>
+                          )}
                         </motion.div>
                       ))}
                     </div>

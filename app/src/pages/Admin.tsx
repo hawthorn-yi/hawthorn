@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import {
-  Users, Shield, ShieldAlert, UserX, RefreshCw, CheckCircle2,
+  Users, Shield, ShieldAlert, RefreshCw, CheckCircle2,
   XCircle, ArrowLeft, Trash2, Clock, UserCheck,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,7 +10,7 @@ import { getAllUsers, updateUserRole, updateUserApproval, deleteUser } from "@/l
 import type { AppUser } from "@/lib/auth";
 import { toast, Toaster } from "sonner";
 import {
-  AlertDialog, AlertDialogTrigger, AlertDialogContent,
+  AlertDialog, AlertDialogContent,
   AlertDialogHeader, AlertDialogTitle, AlertDialogDescription,
   AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
 } from "@/components/ui/alert-dialog";

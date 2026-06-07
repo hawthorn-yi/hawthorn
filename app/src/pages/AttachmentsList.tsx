@@ -6,7 +6,6 @@ import {
 import { useTaskManager } from "@/hooks/useTaskManager";
 import Layout from "@/components/Layout";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 function formatFileSize(bytes: number): string {
@@ -153,7 +152,7 @@ export default function AttachmentsList() {
                           exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
                           <div className="px-5 pb-4 border-t border-[#E2E8F0] pt-3">
                             <div className="flex flex-col gap-1.5">
-                              {task.attachments?.map((att, attIdx) => (
+                              {task.attachments?.map((att) => (
                                 <div key={att.id}
                                   className="flex items-center gap-3 py-2.5 px-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#CBD5E1] transition-all group">
                                   <FileText className="w-4 h-4 text-[#64748B] shrink-0" />

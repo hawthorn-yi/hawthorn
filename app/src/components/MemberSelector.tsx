@@ -17,10 +17,8 @@ interface MemberSelectorProps {
 }
 
 export default function MemberSelector({
-  taskId,
   existingMembers = [],
   onMembersChange,
-  onAddMember,
   onRemoveMember,
   readOnly = false,
   defaultSelectedIds,

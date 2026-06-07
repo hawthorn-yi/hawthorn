@@ -119,6 +119,7 @@ export function useCloudSync() {
           status: row.status as Task["status"],
           history: (row.history as Task["history"]) || [],
           attachments: (row.attachments as Task["attachments"]) || [],
+          sort_order: (row.sort_order as number) || 0,
         })),
         customCategories: catData.map((row: Record<string, unknown>) => ({
           id: row.id as string,
@@ -169,6 +170,7 @@ export function useCloudSync() {
               status: row.status as Task["status"],
               history: (row.history as Task["history"]) || [],
               attachments: (row.attachments as Task["attachments"]) || [],
+              sort_order: (row.sort_order as number) || 0,
             }));
 
             const categories = (catData || []).map(
@@ -219,6 +221,7 @@ export function useCloudSync() {
               status: row.status as Task["status"],
               history: (row.history as Task["history"]) || [],
               attachments: (row.attachments as Task["attachments"]) || [],
+              sort_order: (row.sort_order as number) || 0,
             }));
 
             onDataChange(tasks, categories);

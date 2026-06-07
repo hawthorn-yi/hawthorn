@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, ClipboardList, Clock, CheckCircle2, User, Calendar,
+  ArrowLeft, ClipboardList, Clock, User, Calendar,
   ChevronRight, AlertTriangle, Inbox,
 } from "lucide-react";
 import { useTaskManager } from "@/hooks/useTaskManager";
@@ -20,10 +20,6 @@ function getWeekday(dateStr: string): string {
   const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
   const d = new Date(dateStr + "T00:00:00");
   return weekdays[d.getDay()];
-}
-
-function isOverdue(task: Task): boolean {
-  return task.status === "overdue";
 }
 
 function isDueSoon(task: Task): boolean {
