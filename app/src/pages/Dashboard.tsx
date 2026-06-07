@@ -412,6 +412,9 @@ export default function Dashboard() {
   // Attachment preview
   const [previewAttachment, setPreviewAttachment] = useState<{ name: string; dataUrl: string } | null>(null);
 
+  // Attachment delete confirmation
+  const [deleteAttachmentConfirm, setDeleteAttachmentConfirm] = useState<{ taskId: string; attachmentId: string; name: string } | null>(null);
+
   // Inline deadline editing
   const [inlineDeadlineTask, setInlineDeadlineTask] = useState<Task | null>(null);
   const [inlineDeadlineValue, setInlineDeadlineValue] = useState("");
@@ -1236,7 +1239,7 @@ export default function Dashboard() {
                               await updateAttachment(editingTask.id, att.id, file); e.target.value = "";
                             }} />
                           </label>
-                          <button onClick={() => removeAttachment(editingTask.id, att.id)}
+                          <button onClick={() => setDeleteAttachmentConfirm({ taskId: editingTask.id, attachmentId: att.id, name: att.name })}
                             className="w-6 h-6 flex items-center justify-center rounded text-[#94A3B8] hover:text-[#F43F5E] hover:bg-[#FFF1F2] transition-all cursor-pointer shrink-0" title="删除">
                             <X className="w-3 h-3" />
                           </button>
@@ -1310,6 +1313,43 @@ export default function Dashboard() {
       </Dialog>
 
       <DeleteModal task={deleteTaskData} open={deleteOpen} onClose={() => setDeleteOpen(false)} onConfirm={confirmDelete} />
+
+      {/* Attachment Delete Confirmation Dialog */}
+      <Dialog open={!!deleteAttachmentConfirm} onOpenChange={(open) => { if (!open) setDeleteAttachmentConfirm(null); }}>
+        <DialogContent className="max-w-[420px] w-[90vw] p-8 bg-white rounded-2xl shadow-[0_24px_48px_rgba(0,0,0,0.15)] border-0 gap-0">
+          <div className="flex flex-col items-center text-center">
+            <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 1.5, repeat: Infinity }}
+              className="w-14 h-14 rounded-full bg-[#FFF1F2] flex items-center justify-center mb-5">
+              <Trash2 className="w-7 h-7 text-[#F43F5E]" />
+            </motion.div>
+            <h3 className="text-[1.25rem] font-bold text-[#1E293B] mb-2">删除附件？</h3>
+            <p className="text-sm text-[#64748B] mb-2">
+              确定要删除附件
+            </p>
+            <p className="text-sm font-semibold text-[#1E293B] bg-[#F8FAFC] px-4 py-2 rounded-lg mb-6 break-all">
+              {deleteAttachmentConfirm?.name}
+            </p>
+            <p className="text-xs text-[#94A3B8] mb-6">
+              删除后无法恢复，操作将同步记录到更新日志
+            </p>
+            <div className="flex gap-3 w-full">
+              <button onClick={() => setDeleteAttachmentConfirm(null)}
+                className="flex-1 px-5 py-2.5 bg-[#F1F5F9] text-[#334155] text-sm font-medium rounded-lg hover:bg-[#E2E8F0] transition-colors cursor-pointer">
+                取消
+              </button>
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                onClick={async () => {
+                  if (!deleteAttachmentConfirm) return;
+                  await removeAttachment(deleteAttachmentConfirm.taskId, deleteAttachmentConfirm.attachmentId);
+                  setDeleteAttachmentConfirm(null);
+                }}
+                className="flex-1 px-5 py-2.5 bg-[#F43F5E] text-white text-sm font-semibold rounded-lg hover:bg-[#FB7185] transition-colors cursor-pointer">
+                确认删除
+              </motion.button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Clear Data Confirmation Dialog */}
       <Dialog open={clearDataOpen} onOpenChange={(open) => { if (!open) { setClearDataOpen(false); setClearDataConfirmText(""); } }}>

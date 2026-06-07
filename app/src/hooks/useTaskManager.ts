@@ -689,10 +689,25 @@ export function useTaskManager() {
       dataUrl,
     };
 
+    // Build history entry for attachment upload
+    const entryId = generateId();
+    const entry: ProgressEntry = {
+      id: entryId,
+      taskId,
+      timestamp: new Date().toISOString(),
+      progress: 0, // no progress change
+      note: `上传了附件 ${file.name}`,
+      username: getAuthToken()?.username,
+    };
+
     setTasks((prev) =>
       prev.map((task) => {
         if (task.id !== taskId) return task;
-        return { ...task, attachments: [...(task.attachments || []), attachment] };
+        return {
+          ...task,
+          attachments: [...(task.attachments || []), attachment],
+          history: [...task.history, entry],
+        };
       })
     );
 
@@ -703,17 +718,55 @@ export function useTaskManager() {
       size: file.size,
       data_url: dataUrl,
     });
+
+    await supabase.from("progress_entries").insert({
+      id: entryId,
+      task_id: taskId,
+      timestamp: entry.timestamp,
+      progress: entry.progress,
+      note: entry.note,
+      username: getAuthToken()?.username,
+    });
   }, []);
 
   const removeAttachment = useCallback(async (taskId: string, attachmentId: string) => {
+    // Find attachment name before removing
+    const task = tasks.find((t) => t.id === taskId);
+    const att = task?.attachments?.find((a) => a.id === attachmentId);
+    const attName = att?.name || "未知文件";
+
+    // Build history entry for attachment deletion
+    const entryId = generateId();
+    const entry: ProgressEntry = {
+      id: entryId,
+      taskId,
+      timestamp: new Date().toISOString(),
+      progress: 0, // no progress change
+      note: `删除了附件 ${attName}`,
+      username: getAuthToken()?.username,
+    };
+
     setTasks((prev) =>
       prev.map((task) => {
         if (task.id !== taskId) return task;
-        return { ...task, attachments: (task.attachments || []).filter((a) => a.id !== attachmentId) };
+        return {
+          ...task,
+          attachments: (task.attachments || []).filter((a) => a.id !== attachmentId),
+          history: [...task.history, entry],
+        };
       })
     );
     await supabase.from("attachments").delete().eq("id", attachmentId);
-  }, []);
+
+    await supabase.from("progress_entries").insert({
+      id: entryId,
+      task_id: taskId,
+      timestamp: entry.timestamp,
+      progress: entry.progress,
+      note: entry.note,
+      username: getAuthToken()?.username,
+    });
+  }, [tasks]);
 
   const updateAttachment = useCallback(async (taskId: string, attachmentId: string, file: File) => {
     const dataUrl = await new Promise<string>((resolve) => {
