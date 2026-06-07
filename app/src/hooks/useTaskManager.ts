@@ -470,22 +470,36 @@ export function useTaskManager() {
 
     await supabase.from("tasks").update(updatePayload).eq("id", taskId);
 
-    // Add progress entry if progress or note changed
+    // Add progress entry if progress, note, or deadline changed
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return result;
 
     const hasNote = data.note !== undefined && data.note.trim() !== "";
     const progressChanged = data.progress !== undefined && data.progress !== task.progress;
+    const deadlineChanged = data.deadline !== undefined && data.deadline !== task.deadline;
 
-    if (progressChanged || hasNote) {
+    if (progressChanged || hasNote || deadlineChanged) {
       const newProgress = data.progress !== undefined ? Math.max(0, Math.min(100, data.progress)) : task.progress;
       const entryId = generateId();
+
+      // Build note: priority is manual note > deadline change > progress change
+      let noteText: string;
+      if (hasNote) {
+        noteText = data.note!.trim();
+      } else if (deadlineChanged) {
+        const oldDeadline = task.deadline || "未设置";
+        const newDeadline = data.deadline!;
+        noteText = `截止日期从 ${oldDeadline} 调整为 ${newDeadline}`;
+      } else {
+        noteText = `进度更新至 ${newProgress}%`;
+      }
+
       const entry: ProgressEntry = {
         id: entryId,
         taskId,
         timestamp: new Date().toISOString(),
         progress: newProgress,
-        note: hasNote ? data.note!.trim() : `进度更新至 ${newProgress}%`,
+        note: noteText,
         username: getAuthToken()?.username,
       };
 
