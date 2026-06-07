@@ -1019,7 +1019,10 @@ export default function Dashboard() {
                                     <Undo2 className="w-3.5 h-3.5" />
                                   </button>
                                   <button onClick={() => openEditTask(task)} className="w-8 h-8 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#3B82F6] cursor-pointer" title="编辑"><Pencil className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => handleDelete(task)} className="w-8 h-8 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#F43F5E] cursor-pointer" title="删除"><Trash2 className="w-3.5 h-3.5" /></button>
+                                  {/* Delete: only creator (owner_id) or admin */}
+                                  {(isAdmin || task.owner_id === currentUserId) && (
+                                    <button onClick={() => handleDelete(task)} className="w-8 h-8 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#F43F5E] cursor-pointer" title="删除"><Trash2 className="w-3.5 h-3.5" /></button>
+                                  )}
                                 </div>
                               </motion.div>
                             ))}
@@ -1409,7 +1412,6 @@ export default function Dashboard() {
             <div className="flex flex-col gap-2.5 pr-1">
               {allCategories.map((cat) => {
                 const taskCount = tasks.filter((t) => t.category === cat.id).length;
-                const isDefault = ["new-product", "daily-order", "temporary"].includes(cat.id);
                 return (
                 <div key={cat.id} className="flex items-center gap-3 p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#CBD5E1] transition-all">
                   <div className="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center shadow-sm"
@@ -1427,16 +1429,14 @@ export default function Dashboard() {
                         title={color} />
                     ))}
                   </div>
-                  {/* Delete button (not for default categories) */}
-                  {!isDefault && (
-                    <button
-                      onClick={() => { setDeleteCategoryId(cat.id); setDeleteCategoryTaskCount(taskCount); }}
-                      className="w-7 h-7 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#EF4444] hover:bg-[#FFF1F2] transition-colors cursor-pointer shrink-0 ml-2"
-                      title="删除分类"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                  {/* Delete button for all categories */}
+                  <button
+                    onClick={() => { setDeleteCategoryId(cat.id); setDeleteCategoryTaskCount(taskCount); }}
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#EF4444] hover:bg-[#FFF1F2] transition-colors cursor-pointer shrink-0 ml-2"
+                    title="删除分类"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
                 );
               })}
@@ -1458,14 +1458,21 @@ export default function Dashboard() {
               <AlertDialogHeader>
                 <AlertDialogTitle className="text-lg font-semibold text-[#1E293B]">确认删除分类</AlertDialogTitle>
                 <AlertDialogDescription className="text-sm text-[#64748B] mt-2">
-                  {deleteCategoryTaskCount > 0 ? (
-                    <>
-                      该分类下有 <span className="font-bold text-[#EF4444]">{deleteCategoryTaskCount} 个任务</span>，
-                      删除后这些任务将被移至其他分类。
-                    </>
-                  ) : (
-                    "该分类下没有任务，可以安全删除。"
-                  )}
+                  {(() => {
+                    const isDefault = ["new-product", "daily-order", "temporary"].includes(deleteCategoryId);
+                    if (deleteCategoryTaskCount > 0) {
+                      return (
+                        <>
+                          该分类下有 <span className="font-bold text-[#EF4444]">{deleteCategoryTaskCount} 个任务</span>，
+                          删除后这些任务将被移至其他分类。
+                          {isDefault && <><br /><span className="text-[#F59E0B]">⚠ 这是默认分类，删除后不可恢复。</span></>}
+                        </>
+                      );
+                    }
+                    return isDefault
+                      ? (<><span className="text-[#F59E0B]">⚠ 这是默认分类，删除后不可恢复。确定要删除吗？</span></>)
+                      : "该分类下没有任务，可以安全删除。";
+                  })()}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="mt-4 flex justify-end gap-3">
