@@ -1297,7 +1297,7 @@ export default function Dashboard() {
                 <AnimatePresence>
                   {showHistory && (
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
-                      <ScrollArea className="max-h-[200px] mt-2">
+                      <ScrollArea className="max-h-[360px] mt-2">
                         <div className="flex flex-col gap-2">
                           {[...editingTask.history].reverse().map((entry) => {
                             const entryReplies = historyReplies.filter((r) => r.progress_entry_id === entry.id);
