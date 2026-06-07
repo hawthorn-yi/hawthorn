@@ -42,7 +42,6 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -1297,7 +1296,7 @@ export default function Dashboard() {
                 <AnimatePresence>
                   {showHistory && (
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
-                      <ScrollArea className="max-h-[360px] mt-2">
+                      <div className="max-h-[360px] overflow-y-auto mt-2">
                         <div className="flex flex-col gap-2">
                           {[...editingTask.history].reverse().map((entry) => {
                             const entryReplies = historyReplies.filter((r) => r.progress_entry_id === entry.id);
@@ -1333,7 +1332,7 @@ export default function Dashboard() {
                             );
                           })}
                         </div>
-                      </ScrollArea>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -1586,7 +1585,7 @@ export default function Dashboard() {
             <DialogTitle className="text-xl font-semibold text-[#1E293B]">管理分类颜色</DialogTitle>
           </DialogHeader>
           <p className="text-xs text-[#94A3B8] mb-4 -mt-2">点击色块调整标签颜色，更改实时生效</p>
-          <ScrollArea className="max-h-[380px] flex-1 -mx-2 px-2">
+          <div className="max-h-[380px] overflow-y-auto flex-1 -mx-2 px-2">
             <div className="flex flex-col gap-2.5 pr-1">
               {allCategories.map((cat) => {
                 const taskCount = tasks.filter((t) => t.category === cat.id).length;
@@ -1619,7 +1618,7 @@ export default function Dashboard() {
                 );
               })}
             </div>
-          </ScrollArea>
+          </div>
           <div className="flex justify-between mt-5 pt-4 border-t border-[#E2E8F0]">
             <button onClick={() => { setShowCategoryDialog(true); setShowCategoryManageDialog(false); }}
               className="px-4 py-2 text-sm font-medium text-[#3B82F6] hover:text-[#2563EB] hover:bg-[#EFF6FF] rounded-lg cursor-pointer transition-colors">
@@ -1745,7 +1744,7 @@ export default function Dashboard() {
               </div>
 
               {/* History List */}
-              <ScrollArea className="flex-1">
+              <div className="flex-1 overflow-y-auto min-h-0">
                 <div className="px-5 py-4">
                   {drawerTask.history.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -1820,7 +1819,7 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-              </ScrollArea>
+              </div>
 
               {/* Footer */}
               <div className="px-5 py-3 border-t border-[#E2E8F0] bg-[#F8FAFC] shrink-0">
