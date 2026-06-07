@@ -181,7 +181,7 @@ export function useNotifications() {
 
   // Add reply to a notification
   const addReply = useCallback(
-    async (notificationId: string, progressEntryId: string, content: string) => {
+    async (notificationId: string, progressEntryId: string, taskId: string, content: string) => {
       const fromUserId = getAuthToken()?.id;
       const fromUsername = getAuthToken()?.username || "未知";
       if (!fromUserId || !content.trim()) return;
@@ -189,12 +189,13 @@ export function useNotifications() {
       const replyId = crypto.randomUUID();
       const now = new Date().toISOString();
 
-      // Optimistic update
+      // Optimistic update: add reply + mark as read
       setNotifications((prev) =>
         prev.map((n) => {
           if (n.id !== notificationId) return n;
           return {
             ...n,
+            is_read: true,
             reply_count: n.reply_count + 1,
             replies: [
               ...n.replies,
@@ -209,8 +210,9 @@ export function useNotifications() {
           };
         })
       );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
 
-      // Write to Supabase
+      // Write reply to mention_replies
       await supabase.from("mention_replies").insert({
         id: replyId,
         notification_id: notificationId,
@@ -219,7 +221,7 @@ export function useNotifications() {
         content: content.trim(),
       });
 
-      // Increment reply_count by direct update
+      // Increment reply_count
       const { data: current } = await supabase
         .from("notifications")
         .select("reply_count")
@@ -228,8 +230,20 @@ export function useNotifications() {
       const currentCount = (current?.reply_count as number) || 0;
       await supabase
         .from("notifications")
-        .update({ reply_count: currentCount + 1 })
+        .update({ reply_count: currentCount + 1, is_read: true })
         .eq("id", notificationId);
+
+      // Also write a progress_entry so the reply appears in task update history
+      const entryId = crypto.randomUUID();
+      const replyNote = `回复了 @${getAuthToken()?.username || "用户"}: ${content.trim()}`;
+      await supabase.from("progress_entries").insert({
+        id: entryId,
+        task_id: taskId,
+        timestamp: now,
+        progress: 0, // reply doesn't change progress
+        note: replyNote,
+        username: fromUsername,
+      });
     },
     []
   );

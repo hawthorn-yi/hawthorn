@@ -44,7 +44,7 @@ export default function Mentions() {
     const notif = notifications.find((n) => n.id === notifId);
     if (!notif) return;
 
-    await addReply(notifId, notif.progress_entry_id, text);
+    await addReply(notifId, notif.progress_entry_id, notif.task_id, text);
     setReplyTexts((prev) => ({ ...prev, [notifId]: "" }));
     setReplyingId(null);
   };
