@@ -34,6 +34,9 @@ const navItems = [
   { path: "/history", label: "更新历史", icon: History },
   { path: "/categories", label: "分类总览", icon: Grid3X3 },
   { path: "/attachments", label: "附件清单", icon: Paperclip },
+];
+
+const adminNavItems = [
   { path: "/settings", label: "系统设置", icon: Settings },
 ];
 
@@ -121,6 +124,39 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                 className={`
                   flex items-center gap-3 rounded-lg transition-all duration-150 cursor-pointer
                   ${collapsed && !isMobile ? "justify-center px-0 py-2.5" : "px-3 py-2.5"}
+                  ${active
+                    ? "bg-[#3B82F6]/20 text-[#60A5FA]"
+                    : "text-[#94A3B8] hover:bg-[#1E293B] hover:text-[#E2E8F0]"
+                  }
+                `}
+                title={collapsed ? item.label : undefined}
+              >
+                <item.icon className={`w-5 h-5 shrink-0 ${active ? "text-[#60A5FA]" : ""}`} />
+                {(!collapsed || isMobile) && (
+                  <span className={`text-sm font-medium whitespace-nowrap ${active ? "font-semibold" : ""}`}>
+                    {item.label}
+                  </span>
+                )}
+                {(!collapsed || isMobile) && active && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3B82F6]" />
+                )}
+              </button>
+            );
+          })}
+
+          {/* Admin-only: System Settings */}
+          {isAdmin && adminNavItems.map((item) => {
+            const active = isActive(item.path);
+            return (
+              <button
+                key={item.path}
+                onClick={() => {
+                  navigate(item.path);
+                  if (isMobile) onMobileClose();
+                }}
+                className={`
+                  flex items-center gap-3 rounded-lg transition-all duration-150 cursor-pointer
+                  ${collapsed && !isMobile ? "justify-center px-0 py-2.5 mt-1" : "px-3 py-2.5 mt-1"}
                   ${active
                     ? "bg-[#3B82F6]/20 text-[#60A5FA]"
                     : "text-[#94A3B8] hover:bg-[#1E293B] hover:text-[#E2E8F0]"

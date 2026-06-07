@@ -3,10 +3,10 @@ import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import {
   Users, Shield, ShieldAlert, RefreshCw, CheckCircle2,
-  XCircle, ArrowLeft, Trash2, Clock, UserCheck,
+  XCircle, ArrowLeft, Trash2, Clock, UserCheck, KeyRound,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAllUsers, updateUserRole, updateUserApproval, deleteUser } from "@/lib/auth";
+import { getAllUsers, updateUserRole, updateUserApproval, deleteUser, resetUserPassword } from "@/lib/auth";
 import type { AppUser } from "@/lib/auth";
 import { toast, Toaster } from "sonner";
 import {
@@ -31,6 +31,10 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [resetUserId, setResetUserId] = useState<string | null>(null);
+  const [resetUsername, setResetUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -87,6 +91,30 @@ export default function Admin() {
       toast.error(err instanceof Error ? err.message : "删除失败");
     } finally {
       setDeleteUserId(null);
+    }
+  };
+
+  const openResetDialog = (userId: string, username: string) => {
+    setResetUserId(userId);
+    setResetUsername(username);
+    setNewPassword("");
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetUserId || newPassword.length < 4) {
+      toast.error("密码至少需要4个字符");
+      return;
+    }
+    setResetLoading(true);
+    try {
+      await resetUserPassword(resetUserId, newPassword);
+      toast.success(`${resetUsername} 的密码已重置`);
+      setResetUserId(null);
+      setNewPassword("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "重置失败");
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -250,6 +278,15 @@ export default function Admin() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
+                          {/* Reset password */}
+                          <button
+                            onClick={() => openResetDialog(u.id, u.username)}
+                            className="p-1.5 rounded-md text-[#94A3B8] hover:text-[#F59E0B] hover:bg-[#FFFBEB] transition-colors cursor-pointer"
+                            title="重置密码"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" />
+                          </button>
+
                           {/* Toggle role */}
                           <button
                             onClick={() => handleToggleRole(u.id, u.role)}
@@ -316,6 +353,46 @@ export default function Admin() {
               className="px-5 py-2 bg-[#EF4444] text-white text-sm font-semibold rounded-lg h-10 hover:bg-[#DC2626] transition-colors cursor-pointer"
             >
               确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Password Dialog */}
+      <AlertDialog open={!!resetUserId} onOpenChange={() => { setResetUserId(null); setNewPassword(""); }}>
+        <AlertDialogContent className="max-w-[400px] w-[90vw] p-6 bg-white rounded-2xl shadow-[0_16px_32px_rgba(0,0,0,0.15)] border-0">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-semibold text-[#1E293B]">重置密码</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-[#64748B] mt-2">
+              为用户 <span className="font-semibold text-[#334155]">{resetUsername}</span> 设置新密码。重置后用户需要使用新密码重新登录。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="mt-4">
+            <label className="block text-xs font-medium text-[#64748B] mb-1.5">新密码</label>
+            <input
+              type="text"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleResetPassword(); }}
+              placeholder="输入新密码（至少4个字符）"
+              className="w-full h-11 px-4 rounded-lg text-sm bg-[#F1F5F9] border-0 focus:bg-white focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] outline-none transition-all"
+              autoFocus
+            />
+            <p className="text-xs text-[#94A3B8] mt-1.5">密码至少4个字符</p>
+          </div>
+          <AlertDialogFooter className="mt-4 flex justify-end gap-3">
+            <AlertDialogCancel
+              onClick={() => { setResetUserId(null); setNewPassword(""); }}
+              className="px-5 py-2 bg-[#F1F5F9] text-[#334155] text-sm font-medium rounded-lg h-10 hover:bg-[#E2E8F0] transition-colors cursor-pointer"
+            >
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetPassword}
+              disabled={newPassword.length < 4 || resetLoading}
+              className="px-5 py-2 bg-[#F59E0B] text-white text-sm font-semibold rounded-lg h-10 hover:bg-[#D97706] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            >
+              {resetLoading ? "重置中..." : "确认重置"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

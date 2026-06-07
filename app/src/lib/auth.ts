@@ -184,6 +184,18 @@ export async function deleteUser(userId: string): Promise<void> {
   if (error) throw new Error("删除用户失败: " + error.message);
 }
 
+export async function resetUserPassword(userId: string, newPassword: string): Promise<void> {
+  if (newPassword.length < 4) throw new Error("密码至少需要4个字符");
+
+  const newHash = await hashPassword(newPassword);
+  const { error } = await supabase
+    .from("app_users")
+    .update({ password_hash: newHash })
+    .eq("id", userId);
+
+  if (error) throw new Error("重置密码失败: " + error.message);
+}
+
 export async function changePassword(userId: string, oldPassword: string, newPassword: string): Promise<void> {
   const { data } = await supabase
     .from("app_users")

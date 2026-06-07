@@ -12,6 +12,7 @@ import Account from "./pages/Account";
 import FollowUp from "./pages/FollowUp";
 import Mentions from "./pages/Mentions";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 
 export default function App() {
   return (
@@ -64,17 +65,17 @@ export default function App() {
       <Route
         path="/settings"
         element={
-          <ProtectedRoute>
+          <AdminRoute>
             <Settings />
-          </ProtectedRoute>
+          </AdminRoute>
         }
       />
       <Route
         path="/admin"
         element={
-          <ProtectedRoute>
+          <AdminRoute>
             <Admin />
-          </ProtectedRoute>
+          </AdminRoute>
         }
       />
       <Route
