@@ -151,9 +151,8 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Default hint */}
         <p className="text-center text-xs text-[#CBD5E1] mt-4">
-          默认管理员: admin / admin
+          Designed by KevinZeng
         </p>
       </motion.div>
       <Toaster position="bottom-center" />
