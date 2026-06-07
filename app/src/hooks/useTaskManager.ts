@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import type { Task, ProgressEntry, Attachment, CustomCategory, ProjectMember } from "@/types";
 import { DEFAULT_CATEGORIES } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -114,6 +115,7 @@ export function useTaskManager() {
             timestamp: e.timestamp,
             progress: e.progress,
             note: e.note,
+            username: e.username,
           })),
         attachments: (atts || [])
           .filter((a) => a.task_id === t.id)
@@ -131,11 +133,16 @@ export function useTaskManager() {
         status: getStatus(t),
       }));
 
-      // Filter tasks: if user is logged in, only show tasks they're a member of
+      // Filter tasks: if user is admin, show all tasks
+      // Otherwise, if user is logged in, only show tasks they're a member of
       // If no user or no project_members exist (legacy), show all tasks
-      const filteredTasks = userId && (members || []).length > 0
-        ? updatedTasks.filter((t) => memberTaskIds.includes(t.id))
-        : updatedTasks;
+      const token = getAuthToken();
+      const isAdmin = token?.role === "admin";
+      const filteredTasks = isAdmin
+        ? updatedTasks
+        : userId && (members || []).length > 0
+          ? updatedTasks.filter((t) => memberTaskIds.includes(t.id))
+          : updatedTasks;
 
       setTasks(filteredTasks);
 
@@ -253,8 +260,24 @@ export function useTaskManager() {
   }, []);
 
   const removeProjectMember = useCallback(async (memberId: string) => {
-    setProjectMembers((prev) => prev.filter((m) => m.id !== memberId));
-    await supabase.from("project_members").delete().eq("id", memberId);
+    // Save previous state for rollback
+    let previousMembers: ProjectMember[] = [];
+    setProjectMembers((prev) => {
+      previousMembers = prev;
+      return prev.filter((m) => m.id !== memberId);
+    });
+    try {
+      const { error: deleteError } = await supabase.from("project_members").delete().eq("id", memberId);
+      if (deleteError) {
+        // Rollback on failure
+        setProjectMembers(previousMembers);
+        toast.error(`删除成员失败: ${deleteError.message}`);
+      }
+    } catch {
+      // Rollback on network error
+      setProjectMembers(previousMembers);
+      toast.error("删除成员失败: 网络错误，请检查连接后重试");
+    }
   }, []);
 
   const updateProjectMemberRole = useCallback(async (memberId: string, role: "owner" | "member") => {
@@ -299,6 +322,7 @@ export function useTaskManager() {
         timestamp: now,
         progress: data.progress,
         note: data.note || "创建任务",
+        username: getAuthToken()?.username,
       }],
       attachments: [],
       sort_order: maxOrder + 1,
@@ -332,6 +356,7 @@ export function useTaskManager() {
       timestamp: now,
       progress: data.progress,
       note: data.note || "创建任务",
+      username: getAuthToken()?.username,
     });
 
     // Add project members
@@ -425,6 +450,7 @@ export function useTaskManager() {
         timestamp: new Date().toISOString(),
         progress: newProgress,
         note: hasNote ? data.note!.trim() : `进度更新至 ${newProgress}%`,
+        username: getAuthToken()?.username,
       };
 
       setTasks((prev) =>
@@ -440,6 +466,7 @@ export function useTaskManager() {
         timestamp: entry.timestamp,
         progress: entry.progress,
         note: entry.note,
+        username: getAuthToken()?.username,
       });
     }
 
@@ -469,6 +496,7 @@ export function useTaskManager() {
         timestamp: now,
         progress: newProgress,
         note: completed ? "重新打开" : "标记完成",
+        username: getAuthToken()?.username,
       }],
     };
     updated.status = getStatus(updated);
@@ -487,6 +515,7 @@ export function useTaskManager() {
       timestamp: now,
       progress: newProgress,
       note: completed ? "重新打开" : "标记完成",
+      username: getAuthToken()?.username,
     });
   }, [tasks]);
 
@@ -507,6 +536,7 @@ export function useTaskManager() {
             timestamp: now,
             progress: task.progress,
             note: "项目已终止",
+            username: getAuthToken()?.username,
           }],
         };
         result = updated;
@@ -525,6 +555,7 @@ export function useTaskManager() {
       timestamp: now,
       progress: result?.progress ?? 0,
       note: "项目已终止",
+      username: getAuthToken()?.username,
     });
 
     return result;
@@ -547,6 +578,7 @@ export function useTaskManager() {
             timestamp: now,
             progress: task.progress,
             note: "项目已恢复",
+            username: getAuthToken()?.username,
           }],
         };
         restored.status = getStatus(restored);
@@ -569,6 +601,7 @@ export function useTaskManager() {
       timestamp: now,
       progress: task?.progress ?? 0,
       note: "项目已恢复",
+      username: getAuthToken()?.username,
     });
 
     return result;
@@ -854,5 +887,6 @@ export function useTaskManager() {
     updateProjectMemberRole,
     followUpTasks,
     currentUserId,
+    isAdmin: getAuthToken()?.role === "admin",
   };
 }

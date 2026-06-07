@@ -28,6 +28,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { Task, FilterType, ProjectMember } from "@/types";
 import { useTaskManager } from "@/hooks/useTaskManager";
 import { useDailyDigest } from "@/hooks/useDailyDigest";
+import { supabase } from "@/lib/supabase";
 import Layout from "@/components/Layout";
 import MemberSelector from "@/components/MemberSelector";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -305,6 +306,12 @@ function SortableTaskCard({ task, index, allCategories, projectMembers, onToggle
                   <div key={entry.id} className="flex items-center gap-1.5 text-xs text-[#94A3B8]">
                     <History className="w-3.5 h-3.5 shrink-0" />
                     <span className="font-mono text-[#94A3B8] shrink-0">{formatDateTime(entry.timestamp)}</span>
+                    {entry.username && (
+                      <>
+                        <span className="text-[#CBD5E1] shrink-0">—</span>
+                        <span className="text-[#94A3B8]">{entry.username}</span>
+                      </>
+                    )}
                     <span className="text-[#CBD5E1] shrink-0">—</span>
                     <span className="text-[#64748B] truncate">{entry.note}</span>
                   </div>
@@ -340,7 +347,7 @@ export default function Dashboard() {
     exportData, exportExcel, importData, clearAllData,
     reorderTasks, loading, error, refreshData,
     projectMembers, getTaskMembers, addProjectMember, removeProjectMember,
-    followUpTasks, currentUserId,
+    followUpTasks, currentUserId, isAdmin,
   } = useTaskManager();
   const digest = useDailyDigest();
 
@@ -383,6 +390,14 @@ export default function Dashboard() {
 
   const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
   const [showTerminated, setShowTerminated] = useState(false);
+
+  // User filter (admin only)
+  const [userFilterId, setUserFilterId] = useState<string>("");
+  const [allUsers, setAllUsers] = useState<Array<{ id: string; username: string; role: string }>>([]);
+
+  // Category delete confirmation
+  const [deleteCategoryId, setDeleteCategoryId] = useState<string>("");
+  const [deleteCategoryTaskCount, setDeleteCategoryTaskCount] = useState(0);
 
   // Clear data confirmation
   const [clearDataOpen, setClearDataOpen] = useState(false);
@@ -462,6 +477,19 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Fetch all users for admin filter dropdown
+  useEffect(() => {
+    if (!isAdmin) return;
+    const fetchUsers = async () => {
+      const { data } = await supabase
+        .from("app_users")
+        .select("id, username, role")
+        .order("username");
+      if (data) setAllUsers(data as Array<{ id: string; username: string; role: string }>);
+    };
+    fetchUsers();
+  }, [isAdmin]);
+
   // Stats
   const stats = useMemo(() => {
     const total = tasks.length;
@@ -491,6 +519,15 @@ export default function Dashboard() {
       const q = search.toLowerCase();
       result = result.filter((t) => t.name.toLowerCase().includes(q));
     }
+    // User filter (admin only - filter tasks by selected user)
+    if (userFilterId) {
+      result = result.filter((t) => {
+        const memberUserIds = projectMembers
+          .filter((m) => m.task_id === t.id)
+          .map((m) => m.user_id);
+        return memberUserIds.includes(userFilterId);
+      });
+    }
     switch (sortBy) {
       case "manual": result.sort((a, b) => a.sort_order - b.sort_order); break;
       case "newest": result.sort((a, b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime()); break;
@@ -500,7 +537,7 @@ export default function Dashboard() {
       case "progress-low": result.sort((a, b) => a.progress - b.progress); break;
     }
     return result;
-  }, [tasks, filter, search, sortBy, showTerminated]);
+  }, [tasks, filter, search, sortBy, showTerminated, userFilterId, projectMembers]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -536,7 +573,7 @@ export default function Dashboard() {
     setFormNote("");
     setFormErrors({});
     setShowHistory(false);
-    setSelectedMemberIds([]);
+    setSelectedMemberIds(currentUserId ? [currentUserId] : []);
     setFormAssigneeId("");
     setModalOpen(true);
   };
@@ -565,9 +602,9 @@ export default function Dashboard() {
     if (formDeadline && formCreated && formDeadline < formCreated) {
       newErrors.deadline = "截止日期不能早于创建日期";
     }
-    // Member selection required for new tasks
-    if (!editingTask && selectedMemberIds.length === 0) {
-      newErrors.members = "请至少选择一位有权查看项目的人员";
+    // Member selection is optional - user defaults to being auto-selected
+    if (formErrors.members) {
+      // Keep the error display capability but don't enforce
     }
     if (Object.keys(newErrors).length > 0) {
       setFormErrors(newErrors);
@@ -595,8 +632,15 @@ export default function Dashboard() {
       });
 
       // Sync members: add newly selected, remove deselected
-      const existingMembers = getTaskMembers(editingTask.id);
-      const existingMemberIds = existingMembers.filter(m => m.role !== "owner").map(m => m.user_id);
+      // Fetch real members from Supabase to avoid stale cache issues
+      const { data: realMembers } = await supabase
+        .from("project_members")
+        .select("id, user_id, role")
+        .eq("task_id", editingTask.id);
+      
+      const existingMemberIds = (realMembers || [])
+        .filter((m: Record<string, unknown>) => m.role !== "owner")
+        .map((m: Record<string, unknown>) => m.user_id as string);
 
       // Add new members
       for (const id of selectedMemberIds) {
@@ -604,10 +648,13 @@ export default function Dashboard() {
           await addProjectMember(editingTask.id, id, "member");
         }
       }
-      // Remove deselected members
-      for (const member of existingMembers) {
-        if (member.role !== "owner" && !selectedMemberIds.includes(member.user_id)) {
-          await removeProjectMember(member.id);
+      // Remove deselected members - use direct Supabase call to bypass stale cache
+      for (const member of (realMembers || [])) {
+        const m = member as Record<string, unknown>;
+        if (m.role !== "owner" && !selectedMemberIds.includes(m.user_id as string)) {
+          await supabase.from("project_members").delete().eq("id", m.id as string);
+          // Also update via hook to keep cache in sync
+          await removeProjectMember(m.id as string);
         }
       }
 
@@ -843,6 +890,28 @@ export default function Dashboard() {
                 placeholder="搜索任务名称..."
                 className="h-10 pl-10 pr-4 rounded-lg bg-[#F1F5F9] border-0 text-sm text-[#64748B] placeholder:text-[#94A3B8] focus:bg-white focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] transition-all" />
             </div>
+            {/* Admin User Filter */}
+            {isAdmin && (
+              <div className="relative">
+                <Select value={userFilterId || "__all__"} onValueChange={(v) => setUserFilterId(v === "__all__" ? "" : v)}>
+                  <SelectTrigger className="h-10 px-3 rounded-lg bg-[#F1F5F9] border-0 text-sm text-[#64748B] focus:bg-white focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] transition-all min-w-[140px]">
+                    <SelectValue placeholder="按用户筛选..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">全部用户</SelectItem>
+                    {allUsers.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        <div className="flex items-center gap-2">
+                          <User className="w-3.5 h-3.5" />
+                          {u.username}
+                          {u.role === "admin" && <span className="text-[0.625rem] text-[#F59E0B] ml-1">管理</span>}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="relative">
               <button onClick={() => setShowSortDropdown(!showSortDropdown)}
                 className="flex items-center gap-1.5 h-10 px-4 bg-[#F1F5F9] rounded-lg text-sm text-[#64748B] hover:bg-[#E2E8F0] transition-colors cursor-pointer">
@@ -1011,12 +1080,13 @@ export default function Dashboard() {
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-[0.8125rem] font-medium text-[#64748B]">
-                  有权查看项目的人员 {!editingTask && <span className="text-[#F43F5E]">*</span>}
+                  有权查看项目的人员
                 </label>
               </div>
               <MemberSelector
                 taskId={editingTask?.id}
                 existingMembers={editingTask ? getTaskMembers(editingTask.id) : []}
+                defaultSelectedIds={editingTask ? undefined : (currentUserId ? [currentUserId] : undefined)}
                 onMembersChange={setSelectedMemberIds}
                 onAddMember={async (userId) => {
                   if (editingTask) {
@@ -1110,6 +1180,11 @@ export default function Dashboard() {
                                 <div className="h-full bg-[#3B82F6] rounded-full transition-all duration-500" style={{ width: `${entry.progress}%` }} />
                               </div>
                               <span className="font-mono text-[#475569] font-semibold shrink-0 w-8 tabular-nums">{entry.progress}%</span>
+                              {entry.username && (
+                                <span className="text-[#94A3B8] shrink-0 flex items-center gap-0.5">
+                                  <User className="w-3 h-3" />{entry.username}
+                                </span>
+                              )}
                               <span className="text-[#64748B] truncate">{entry.note}</span>
                             </div>
                           ))}
@@ -1332,7 +1407,10 @@ export default function Dashboard() {
           <p className="text-xs text-[#94A3B8] mb-4 -mt-2">点击色块调整标签颜色，更改实时生效</p>
           <ScrollArea className="max-h-[380px] flex-1 -mx-2 px-2">
             <div className="flex flex-col gap-2.5 pr-1">
-              {allCategories.map((cat) => (
+              {allCategories.map((cat) => {
+                const taskCount = tasks.filter((t) => t.category === cat.id).length;
+                const isDefault = ["new-product", "daily-order", "temporary"].includes(cat.id);
+                return (
                 <div key={cat.id} className="flex items-center gap-3 p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#CBD5E1] transition-all">
                   <div className="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center shadow-sm"
                     style={{ backgroundColor: cat.color }}>
@@ -1349,8 +1427,19 @@ export default function Dashboard() {
                         title={color} />
                     ))}
                   </div>
+                  {/* Delete button (not for default categories) */}
+                  {!isDefault && (
+                    <button
+                      onClick={() => { setDeleteCategoryId(cat.id); setDeleteCategoryTaskCount(taskCount); }}
+                      className="w-7 h-7 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#EF4444] hover:bg-[#FFF1F2] transition-colors cursor-pointer shrink-0 ml-2"
+                      title="删除分类"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </ScrollArea>
           <div className="flex justify-between mt-5 pt-4 border-t border-[#E2E8F0]">
@@ -1363,6 +1452,41 @@ export default function Dashboard() {
               完成
             </button>
           </div>
+          {/* Category Delete Confirmation */}
+          <AlertDialog open={!!deleteCategoryId} onOpenChange={(open) => !open && setDeleteCategoryId("")}>
+            <AlertDialogContent className="max-w-[400px] w-[90vw] p-6 bg-white rounded-2xl shadow-[0_16px_32px_rgba(0,0,0,0.15)] border-0">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-lg font-semibold text-[#1E293B]">确认删除分类</AlertDialogTitle>
+                <AlertDialogDescription className="text-sm text-[#64748B] mt-2">
+                  {deleteCategoryTaskCount > 0 ? (
+                    <>
+                      该分类下有 <span className="font-bold text-[#EF4444]">{deleteCategoryTaskCount} 个任务</span>，
+                      删除后这些任务将被移至其他分类。
+                    </>
+                  ) : (
+                    "该分类下没有任务，可以安全删除。"
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="mt-4 flex justify-end gap-3">
+                <AlertDialogCancel onClick={() => setDeleteCategoryId("")}
+                  className="px-5 py-2 bg-[#F1F5F9] text-[#334155] text-sm font-medium rounded-lg h-10 hover:bg-[#E2E8F0] transition-colors cursor-pointer">
+                  取消
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={async () => {
+                    if (deleteCategoryId) {
+                      await deleteCategory(deleteCategoryId);
+                      setDeleteCategoryId("");
+                      toast.success("分类已删除");
+                    }
+                  }}
+                  className="px-5 py-2 bg-[#EF4444] text-white text-sm font-semibold rounded-lg h-10 hover:bg-[#DC2626] transition-colors cursor-pointer">
+                  确认删除
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </DialogContent>
       </Dialog>
 
@@ -1458,6 +1582,12 @@ export default function Dashboard() {
                             <span className="text-xs font-mono text-[#94A3B8]">{formatDateTime(entry.timestamp)}</span>
                             <span className="text-sm font-bold text-[#475569] tabular-nums">{entry.progress}%</span>
                           </div>
+                          {entry.username && (
+                            <div className="flex items-center gap-1 mb-2 -mt-1">
+                              <User className="w-3 h-3 text-[#94A3B8]" />
+                              <span className="text-xs text-[#94A3B8]">{entry.username}</span>
+                            </div>
+                          )}
                           {entry.note && (
                             <p className="text-xs text-[#64748B] leading-relaxed">{entry.note}</p>
                           )}

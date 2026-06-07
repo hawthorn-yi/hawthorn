@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
-import { X, UserPlus, Crown } from "lucide-react";
+import { X, UserPlus, Crown, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import type { AppUser } from "@/lib/auth";
@@ -13,6 +13,7 @@ interface MemberSelectorProps {
   onAddMember?: (userId: string, username: string) => void;
   onRemoveMember?: (memberId: string) => void;
   readOnly?: boolean;
+  defaultSelectedIds?: string[]; // Initial selected user IDs (e.g., current user)
 }
 
 export default function MemberSelector({
@@ -22,17 +23,37 @@ export default function MemberSelector({
   onAddMember,
   onRemoveMember,
   readOnly = false,
+  defaultSelectedIds,
 }: MemberSelectorProps) {
   const { user, isAdmin } = useAuth();
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    new Set(existingMembers.map((m) => m.user_id))
-  );
+  // Track touch events to prevent double-firing on iPad
+  const touchActiveRef = useRef(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => {
+    const existing = new Set(existingMembers.map((m) => m.user_id));
+    // Also include defaultSelectedIds
+    if (defaultSelectedIds) {
+      defaultSelectedIds.forEach((id) => existing.add(id));
+    }
+    return existing;
+  });
+
+  // Track previous existingMembers to avoid resetting selectedIds on every render
+  const prevMembersRef = useRef<string>("");
 
   useEffect(() => {
-    setSelectedIds(new Set(existingMembers.map((m) => m.user_id)));
-  }, [existingMembers]);
+    const membersKey = JSON.stringify(existingMembers.map((m) => m.user_id).sort());
+    if (membersKey !== prevMembersRef.current) {
+      prevMembersRef.current = membersKey;
+      const ids = new Set(existingMembers.map((m) => m.user_id));
+      // Also include defaultSelectedIds
+      if (defaultSelectedIds) {
+        defaultSelectedIds.forEach((id) => ids.add(id));
+      }
+      setSelectedIds(ids);
+    }
+  }, [existingMembers, defaultSelectedIds]);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -105,6 +126,7 @@ export default function MemberSelector({
     }
     setSelectedIds(newSet);
     onMembersChange?.(Array.from(newSet));
+    // Keep dropdown open so user can see the checkmark and select multiple people
   };
 
   const handleRemove = (member: { id: string; user_id: string }) => {
@@ -115,7 +137,11 @@ export default function MemberSelector({
       setSelectedIds(newSet);
       onMembersChange?.(Array.from(newSet));
     } else {
-      // Existing member - remove via callback
+      // Existing member - remove via callback AND sync selectedIds
+      const newSet = new Set(selectedIds);
+      newSet.delete(member.user_id);
+      setSelectedIds(newSet);
+      onMembersChange?.(Array.from(newSet));
       onRemoveMember?.(member.id);
     }
   };
@@ -185,28 +211,59 @@ export default function MemberSelector({
                 transition={{ duration: 0.15 }}
                 className="absolute left-0 top-full mt-1 z-20 bg-white rounded-xl border border-[#E2E8F0] shadow-[0_8px_24px_rgba(0,0,0,0.1)] py-1 min-w-[220px] max-h-[240px] overflow-y-auto"
               >
-                {availableUsers.map((u) => {
-                  return (
-                    <button
-                      key={u.id}
-                      onClick={() => handleToggle(u.id, u.username)}
-                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors cursor-pointer text-[#64748B] hover:bg-[#F8FAFC]"
-                    >
-                      <div className="w-5 h-5 rounded border-2 flex items-center justify-center border-[#CBD5E1]" />
-                      <div className="flex-1 text-left">
-                        <span>{u.username}</span>
-                        {u.role === "admin" && (
-                          <span className="ml-1.5 text-[0.625rem] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E]">管理</span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                {allUsers
+                  .filter((u) => u.is_approved && u.id !== user?.id)
+                  .map((u) => {
+                    const isSelected = selectedIds.has(u.id);
+                    return (
+                      <button
+                        key={u.id}
+                        onClick={() => {
+                          // Skip click if triggered by a touch (onTouchEnd already handled it)
+                          if (touchActiveRef.current) {
+                            touchActiveRef.current = false;
+                            return;
+                          }
+                          handleToggle(u.id, u.username);
+                        }}
+                        onTouchEnd={(e) => {
+                          e.preventDefault();
+                          touchActiveRef.current = true;
+                          handleToggle(u.id, u.username);
+                        }}
+                        style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                        className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors cursor-pointer select-none ${
+                          isSelected ? "bg-[#EFF6FF] text-[#2563EB]" : "text-[#64748B] hover:bg-[#F8FAFC]"
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                          isSelected ? "border-[#3B82F6] bg-[#3B82F6]" : "border-[#CBD5E1]"
+                        }`} style={{ touchAction: "manipulation" }}>
+                          {isSelected && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <div className="flex-1 text-left">
+                          <span>{u.username}</span>
+                          {u.role === "admin" && (
+                            <span className="ml-1.5 text-[0.625rem] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E]">管理</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 {availableUsers.length === 0 && (
                   <div className="px-4 py-3 text-xs text-[#94A3B8] text-center">
                     没有其他可用用户
                   </div>
                 )}
+                {/* Confirm button */}
+                <div className="px-3 pt-1 pb-2 border-t border-[#E2E8F0] mt-1">
+                  <button
+                    onClick={() => setShowDropdown(false)}
+                    className="w-full px-3 py-2 rounded-lg text-sm font-medium bg-[#3B82F6] text-white hover:bg-[#2563EB] transition-colors cursor-pointer"
+                  >
+                    确定 ({selectedIds.size} 人选)
+                  </button>
+                </div>
               </motion.div>
             </>
           )}

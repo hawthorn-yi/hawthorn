@@ -11,6 +11,7 @@ export interface ProgressEntry {
   timestamp: string;
   progress: number;
   note: string;
+  username?: string; // Who created this entry
 }
 
 export type TaskCategory = string;
