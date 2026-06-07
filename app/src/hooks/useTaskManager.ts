@@ -431,8 +431,8 @@ export function useTaskManager() {
     deadline?: string;
     progress?: number;
     note?: string;
-    assigneeId?: string;
-    assigneeUsername?: string;
+    assigneeId?: string | null;
+    assigneeUsername?: string | null;
   }): Promise<Task | null> => {
     let result: Task | null = null;
 
@@ -444,8 +444,8 @@ export function useTaskManager() {
         if (data.category !== undefined) updated.category = data.category;
         if (data.createdDate !== undefined) updated.createdDate = data.createdDate;
         if (data.deadline !== undefined) updated.deadline = data.deadline;
-        if (data.assigneeId !== undefined) updated.assignee_id = data.assigneeId;
-        if (data.assigneeUsername !== undefined) updated.assignee_username = data.assigneeUsername;
+        if (data.assigneeId !== undefined) updated.assignee_id = data.assigneeId ?? undefined;
+        if (data.assigneeUsername !== undefined) updated.assignee_username = data.assigneeUsername ?? undefined;
 
         if (data.progress !== undefined) {
           updated.progress = Math.max(0, Math.min(100, data.progress));
@@ -463,8 +463,8 @@ export function useTaskManager() {
     if (data.createdDate !== undefined) updatePayload.created_date = data.createdDate;
     if (data.deadline !== undefined) updatePayload.deadline = data.deadline;
     if (data.progress !== undefined) updatePayload.progress = Math.max(0, Math.min(100, data.progress));
-    if (data.assigneeId !== undefined) updatePayload.assignee_id = data.assigneeId;
-    if (data.assigneeUsername !== undefined) updatePayload.assignee_username = data.assigneeUsername;
+    if (data.assigneeId !== undefined) updatePayload.assignee_id = data.assigneeId ?? null;
+    if (data.assigneeUsername !== undefined) updatePayload.assignee_username = data.assigneeUsername ?? null;
     if (result) updatePayload.status = (result as Task).status;
     updatePayload.updated_at = new Date().toISOString();
 

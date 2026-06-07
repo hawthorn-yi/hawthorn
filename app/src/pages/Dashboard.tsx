@@ -723,10 +723,10 @@ export default function Dashboard() {
         deadline: formDeadline,
         progress: finalProgress,
         note: formNote,
-        assigneeId: formAssigneeId || undefined,
+        assigneeId: formAssigneeId || null,
         assigneeUsername: formAssigneeId
           ? editingTask.assignee_username // keep existing if not changed via the assignee selector
-          : undefined,
+          : null,
       });
 
       // Sync members: add newly selected, remove deselected
