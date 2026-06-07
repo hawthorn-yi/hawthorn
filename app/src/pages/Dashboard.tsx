@@ -28,6 +28,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { Task, FilterType, ProjectMember } from "@/types";
 import { useTaskManager } from "@/hooks/useTaskManager";
 import { useDailyDigest } from "@/hooks/useDailyDigest";
+import { useNotifications } from "@/hooks/useNotifications";
 import { supabase } from "@/lib/supabase";
 import { getAuthToken } from "@/lib/auth";
 import Layout from "@/components/Layout";
@@ -356,6 +357,7 @@ export default function Dashboard() {
     addAttachment, removeAttachment, updateAttachment,
   } = useTaskManager();
   const digest = useDailyDigest();
+  const { unreadCount: mentionCount } = useNotifications();
 
   // DnD sensors
   const sensors = useSensors(
@@ -787,6 +789,7 @@ export default function Dashboard() {
       onExportExcel={handleExportExcel}
       onImport={handleImport}
       followUpCount={followUpTasks().length}
+      mentionCount={mentionCount}
     >
       {/* Hidden file input for import */}
       <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} />

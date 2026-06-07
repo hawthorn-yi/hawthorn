@@ -10,6 +10,7 @@ import Register from "./pages/Register";
 import Admin from "./pages/Admin";
 import Account from "./pages/Account";
 import FollowUp from "./pages/FollowUp";
+import Mentions from "./pages/Mentions";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -89,6 +90,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <FollowUp />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/mentions"
+        element={
+          <ProtectedRoute>
+            <Mentions />
           </ProtectedRoute>
         }
       />

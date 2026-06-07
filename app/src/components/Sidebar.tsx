@@ -13,6 +13,7 @@ import {
   X,
   Shield,
   ClipboardList,
+  AtSign,
 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -24,6 +25,7 @@ interface SidebarProps {
   isMobile: boolean;
   isAdmin?: boolean;
   followUpCount?: number;
+  mentionCount?: number;
 }
 
 const navItems = [
@@ -35,7 +37,7 @@ const navItems = [
   { path: "/settings", label: "系统设置", icon: Settings },
 ];
 
-export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose, isMobile, isAdmin, followUpCount = 0 }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose, isMobile, isAdmin, followUpCount = 0, mentionCount = 0 }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -168,6 +170,40 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                 )}
                 {followUpCount === 0 && location.pathname === "/follow-up" && (
                   <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#8B5CF6]" />
+                )}
+              </>
+            )}
+          </button>
+
+          {/* @Mentions */}
+          <button
+            onClick={() => {
+              navigate("/mentions");
+              if (isMobile) onMobileClose();
+            }}
+            className={`
+              flex items-center gap-3 rounded-lg transition-all duration-150 cursor-pointer
+              ${collapsed && !isMobile ? "justify-center px-0 py-2.5 mt-1" : "px-3 py-2.5 mt-1"}
+              ${location.pathname === "/mentions"
+                ? "bg-[#3B82F6]/20 text-[#60A5FA]"
+                : "text-[#94A3B8] hover:bg-[#1E293B] hover:text-[#93C5FD]"
+              }
+            `}
+            title={collapsed ? `@给我的消息 (${mentionCount})` : undefined}
+          >
+            <AtSign className={`w-5 h-5 shrink-0 ${location.pathname === "/mentions" ? "text-[#60A5FA]" : ""}`} />
+            {(!collapsed || isMobile) && (
+              <>
+                <span className={`text-sm font-medium whitespace-nowrap ${location.pathname === "/mentions" ? "font-semibold" : ""}`}>
+                  @给我的消息
+                </span>
+                {mentionCount > 0 && (
+                  <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-[#3B82F6] text-white text-[0.625rem] font-bold">
+                    {mentionCount}
+                  </span>
+                )}
+                {mentionCount === 0 && location.pathname === "/mentions" && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3B82F6]" />
                 )}
               </>
             )}

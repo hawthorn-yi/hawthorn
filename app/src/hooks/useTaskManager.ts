@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import type { Task, ProgressEntry, Attachment, CustomCategory, ProjectMember } from "@/types";
 import { DEFAULT_CATEGORIES } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { getAuthToken } from "@/lib/auth";
+import { parseMentions, resolveMentions } from "@/lib/mentions";
 import * as XLSX from "xlsx";
 
 function generateId(): string {
@@ -33,6 +34,8 @@ export function useTaskManager() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allCategories, setAllCategories] = useState<CustomCategory[]>(DEFAULT_CATEGORIES);
   const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+  const [userMap, setUserMap] = useState<Map<string, string>>(new Map());
+  const userMapRef = useRef<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,6 +85,16 @@ export function useTaskManager() {
 
       const userMap = new Map<string, string>();
       (appUsers || []).forEach((u) => userMap.set(u.id, u.username));
+
+      // Also build a username->id map for @mention resolution
+      const usernameToIdMap = new Map<string, string>();
+      (appUsers || []).forEach((u) => {
+        usernameToIdMap.set(u.username, u.id);
+        // Support case-insensitive lookup
+        usernameToIdMap.set(u.username.toLowerCase(), u.id);
+      });
+      setUserMap(usernameToIdMap);
+      userMapRef.current = usernameToIdMap;
 
       // Enrich project members with usernames
       const enrichedMembers: ProjectMember[] = (members || []).map((m) => ({
@@ -359,6 +372,29 @@ export function useTaskManager() {
       username: getAuthToken()?.username,
     });
 
+    // Create @mention notifications for the initial note
+    if (data.note && data.note.trim() !== "") {
+      const mentions = parseMentions(data.note);
+      if (mentions.length > 0) {
+        const fromUserId = userId;
+        const resolved = resolveMentions(mentions, userMapRef.current);
+        for (const mention of resolved) {
+          // Don't notify yourself
+          if (mention.userId !== fromUserId) {
+            await supabase.from("notifications").insert({
+              id: generateId(),
+              from_user_id: fromUserId,
+              to_user_id: mention.userId,
+              task_id: taskId,
+              progress_entry_id: entryId,
+              note: data.note.trim(),
+              mentioned_username: mention.username,
+            });
+          }
+        }
+      }
+    }
+
     // Add project members
     if (userId) {
       await supabase.from("project_members").insert({
@@ -468,6 +504,29 @@ export function useTaskManager() {
         note: entry.note,
         username: getAuthToken()?.username,
       });
+
+      // Create @mention notifications
+      if (hasNote) {
+        const mentions = parseMentions(data.note!);
+        if (mentions.length > 0) {
+          const fromUserId = getCurrentUserId();
+          const resolved = resolveMentions(mentions, userMapRef.current);
+          for (const mention of resolved) {
+            // Don't notify yourself
+            if (mention.userId !== fromUserId) {
+              await supabase.from("notifications").insert({
+                id: generateId(),
+                from_user_id: fromUserId,
+                to_user_id: mention.userId,
+                task_id: taskId,
+                progress_entry_id: entryId,
+                note: data.note!.trim(),
+                mentioned_username: mention.username,
+              });
+            }
+          }
+        }
+      }
     }
 
     return result;
@@ -954,5 +1013,6 @@ export function useTaskManager() {
     followUpTasks,
     currentUserId,
     isAdmin: getAuthToken()?.role === "admin",
+    userMap,
   };
 }

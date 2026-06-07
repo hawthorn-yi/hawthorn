@@ -16,6 +16,7 @@ import {
   Shield,
   ChevronDown,
   ClipboardList,
+  AtSign,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import Sidebar from "./Sidebar";
@@ -31,6 +32,7 @@ interface LayoutProps {
   onExportExcel?: () => void;
   onImport?: () => void;
   followUpCount?: number;
+  mentionCount?: number;
 }
 
 export default function Layout({
@@ -42,6 +44,7 @@ export default function Layout({
   onExportExcel,
   onImport,
   followUpCount = 0,
+  mentionCount = 0,
 }: LayoutProps) {
   const navigate = useNavigate();
   const { user, logout, isAdmin } = useAuth();
@@ -91,6 +94,7 @@ export default function Layout({
         isMobile={isMobile}
         isAdmin={isAdmin}
         followUpCount={followUpCount}
+        mentionCount={mentionCount}
       />
 
       {/* Main Content Area */}
@@ -135,6 +139,20 @@ export default function Layout({
               </button>
             )}
 
+            {/* Mentions badge in top bar (desktop) */}
+            {mentionCount > 0 && (
+              <button
+                onClick={() => navigate("/mentions")}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-[#EFF6FF] rounded-full text-xs font-medium text-[#2563EB] hover:bg-[#DBEAFE] transition-colors cursor-pointer"
+              >
+                <AtSign className="w-3.5 h-3.5" />
+                <span>@消息</span>
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-[#3B82F6] text-white text-[0.625rem] font-bold">
+                  {mentionCount}
+                </span>
+              </button>
+            )}
+
             {/* Search placeholder */}
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-[#F1F5F9] rounded-lg text-sm text-[#94A3B8]">
               <Search className="w-4 h-4" />
@@ -152,6 +170,17 @@ export default function Layout({
               >
                 <ClipboardList className="w-3.5 h-3.5" />
                 <span className="text-[0.625rem] font-bold">{followUpCount}</span>
+              </button>
+            )}
+
+            {/* Mentions badge for mobile */}
+            {mentionCount > 0 && (
+              <button
+                onClick={() => navigate("/mentions")}
+                className="md:hidden flex items-center gap-1 px-2 py-1.5 bg-[#EFF6FF] rounded-full text-xs font-medium text-[#2563EB] hover:bg-[#DBEAFE] transition-colors cursor-pointer min-w-[36px] min-h-[36px] justify-center"
+              >
+                <AtSign className="w-3.5 h-3.5" />
+                <span className="text-[0.625rem] font-bold">{mentionCount}</span>
               </button>
             )}
 
