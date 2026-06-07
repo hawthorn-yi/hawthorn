@@ -4,7 +4,7 @@ import { defineConfig } from "vite"
 import { inspectAttr } from 'plugin-inspect-react-code'
 
 export default defineConfig({
-  base: './',
+  base: process.env.GITHUB_ACTIONS ? '/hawthorn/' : './',
   plugins: [inspectAttr(), react()],
   server: {
     port: 3000,
