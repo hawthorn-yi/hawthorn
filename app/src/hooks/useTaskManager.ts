@@ -470,22 +470,30 @@ export function useTaskManager() {
 
     await supabase.from("tasks").update(updatePayload).eq("id", taskId);
 
-    // Add progress entry if progress, note, or deadline changed
+    // Add progress entry if progress, note, deadline, or assignee changed
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return result;
 
     const hasNote = data.note !== undefined && data.note.trim() !== "";
     const progressChanged = data.progress !== undefined && data.progress !== task.progress;
     const deadlineChanged = data.deadline !== undefined && data.deadline !== task.deadline;
+    const assigneeChanged = data.assigneeId !== undefined && data.assigneeId !== (task.assignee_id || null);
 
-    if (progressChanged || hasNote || deadlineChanged) {
+    if (progressChanged || hasNote || deadlineChanged || assigneeChanged) {
       const newProgress = data.progress !== undefined ? Math.max(0, Math.min(100, data.progress)) : task.progress;
       const entryId = generateId();
 
-      // Build note: priority is manual note > deadline change > progress change
+      // Build note: priority is manual note > assignee change > deadline change > progress change
       let noteText: string;
       if (hasNote) {
         noteText = data.note!.trim();
+      } else if (assigneeChanged) {
+        if (data.assigneeId) {
+          const assigneeName = data.assigneeUsername || data.assigneeId;
+          noteText = `指派给了 ${assigneeName}`;
+        } else {
+          noteText = "取消了指派";
+        }
       } else if (deadlineChanged) {
         const oldDeadline = task.deadline || "未设置";
         const newDeadline = data.deadline!;

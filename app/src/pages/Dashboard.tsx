@@ -725,7 +725,7 @@ export default function Dashboard() {
         note: formNote,
         assigneeId: formAssigneeId || null,
         assigneeUsername: formAssigneeId
-          ? editingTask.assignee_username // keep existing if not changed via the assignee selector
+          ? (allUsers.find(u => u.id === formAssigneeId)?.username || editingTask.assignee_username || undefined)
           : null,
       });
 
