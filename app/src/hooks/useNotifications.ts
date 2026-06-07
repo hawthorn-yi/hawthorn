@@ -235,17 +235,20 @@ export function useNotifications() {
 
       // Also write a progress_entry so the reply appears in task update history
       const entryId = crypto.randomUUID();
-      const replyNote = `回复了 @${getAuthToken()?.username || "用户"}: ${content.trim()}`;
+      // Find the original sender from the notification
+      const notif = notifications.find((n) => n.id === notificationId);
+      const repliedToUser = notif?.from_username || "用户";
+      const replyNote = `${fromUsername} 回复了 @${repliedToUser}: ${content.trim()}`;
       await supabase.from("progress_entries").insert({
         id: entryId,
         task_id: taskId,
         timestamp: now,
-        progress: 0, // reply doesn't change progress
+        progress: 0,
         note: replyNote,
         username: fromUsername,
       });
     },
-    []
+    [notifications]
   );
 
   return {
