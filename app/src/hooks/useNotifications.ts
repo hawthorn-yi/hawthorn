@@ -235,9 +235,12 @@ export function useNotifications() {
 
       // Also write a progress_entry so the reply appears in task update history
       const entryId = crypto.randomUUID();
-      // Find the original sender from the notification
+      // Find the original sender (who sent the @mention)
       const notif = notifications.find((n) => n.id === notificationId);
       const repliedToUser = notif?.from_username || "用户";
+      // The reply note should show: "test 回复了 @kevin: 内容"
+      // where fromUsername is current user (replier) and repliedToUser is original @sender
+      if (!notif || !repliedToUser) return;
       const replyNote = `${fromUsername} 回复了 @${repliedToUser}: ${content.trim()}`;
       await supabase.from("progress_entries").insert({
         id: entryId,
