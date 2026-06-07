@@ -132,7 +132,7 @@ export default function Layout({
                 className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-[#EFF6FF] rounded-full text-xs font-medium text-[#2563EB] hover:bg-[#DBEAFE] transition-colors cursor-pointer"
               >
                 <ClipboardList className="w-3.5 h-3.5" />
-                <span>跟进任务</span>
+                <span>指派的任务</span>
                 <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-[#3B82F6] text-white text-[0.625rem] font-bold">
                   {followUpCount}
                 </span>

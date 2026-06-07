@@ -68,7 +68,7 @@ export default function FollowUp() {
           <span className="text-sm font-medium">返回项目</span>
         </button>
         <div className="flex-1" />
-        <h1 className="text-lg font-bold text-[#1E293B]">跟进任务</h1>
+        <h1 className="text-lg font-bold text-[#1E293B]">指派的任务</h1>
         <div className="flex-1" />
       </header>
 
@@ -120,7 +120,7 @@ export default function FollowUp() {
             <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
               <Inbox className="w-16 h-16 text-[#CBD5E1] mb-4" />
             </motion.div>
-            <p className="text-xl font-semibold text-[#64748B]">没有待跟进任务</p>
+            <p className="text-xl font-semibold text-[#64748B]">没有指派的任务</p>
             <p className="text-sm text-[#94A3B8] mt-1">所有指派给你的任务都已完成 🎉</p>
           </motion.div>
         ) : (
