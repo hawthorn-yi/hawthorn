@@ -168,7 +168,7 @@ function DeleteModal({ task, open, onClose, onConfirm }: {
 }
 
 /* ─────────────── Sortable Task Card Wrapper ─────────────── */
-function SortableTaskCard({ task, index, allCategories, projectMembers, onToggleComplete, onEdit, onDelete, onHistory, onDeadlineClick, onNameClick }: {
+function SortableTaskCard({ task, index, allCategories, projectMembers, onToggleComplete, onEdit, onDelete, onHistory, onDeadlineClick, onNameClick, isAdmin, currentUserId }: {
   task: Task;
   index: number;
   allCategories: { id: string; name: string; color: string }[];
@@ -179,6 +179,8 @@ function SortableTaskCard({ task, index, allCategories, projectMembers, onToggle
   onHistory: (task: Task) => void;
   onDeadlineClick: (task: Task) => void;
   onNameClick: (task: Task) => void;
+  isAdmin: boolean;
+  currentUserId: string | null;
 }) {
   const {
     attributes,
@@ -326,9 +328,12 @@ function SortableTaskCard({ task, index, allCategories, projectMembers, onToggle
             <button onClick={() => onHistory(task)} className="w-8 h-8 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#3B82F6] hover:bg-[#EFF6FF] transition-all duration-150 cursor-pointer" title="查看历史">
               <History className="w-3.5 h-3.5" />
             </button>
-            <button onClick={() => onDelete(task)} className="w-8 h-8 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#F43F5E] hover:bg-[#FFF1F2] transition-all duration-150 cursor-pointer" title="删除">
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            {/* Delete: only creator (owner_id) or admin can see this button */}
+            {(isAdmin || task.owner_id === currentUserId) && (
+              <button onClick={() => onDelete(task)} className="w-8 h-8 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#F43F5E] hover:bg-[#FFF1F2] transition-all duration-150 cursor-pointer" title="删除">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </motion.div>
@@ -987,6 +992,8 @@ export default function Dashboard() {
                           onHistory={(t) => navigate(`/history?taskId=${t.id}`)}
                           onDeadlineClick={openInlineDeadline}
                           onNameClick={handleNameClick}
+                          isAdmin={isAdmin}
+                          currentUserId={currentUserId}
                         />
                       );
                     })
