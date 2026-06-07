@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, AtSign, MessageSquare, Inbox, ChevronRight,
+  Send, Reply, CornerDownRight,
 } from "lucide-react";
 import { useNotifications } from "@/hooks/useNotifications";
 
@@ -24,7 +25,10 @@ function formatTime(iso: string): string {
 
 export default function Mentions() {
   const navigate = useNavigate();
-  const { notifications, loading, unreadCount, markAllAsRead } = useNotifications();
+  const { notifications, loading, unreadCount, markAllAsRead, addReply } = useNotifications();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
+  const [replyingId, setReplyingId] = useState<string | null>(null);
 
   // Auto mark all as read when entering the page
   useEffect(() => {
@@ -32,6 +36,22 @@ export default function Mentions() {
       markAllAsRead();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleReply = async (notifId: string) => {
+    const text = replyTexts[notifId]?.trim();
+    if (!text) return;
+
+    const notif = notifications.find((n) => n.id === notifId);
+    if (!notif) return;
+
+    await addReply(notifId, notif.progress_entry_id, text);
+    setReplyTexts((prev) => ({ ...prev, [notifId]: "" }));
+    setReplyingId(null);
+  };
+
+  const toggleExpand = (id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
 
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
@@ -102,49 +122,120 @@ export default function Mentions() {
 
         {/* Notification List */}
         {!loading && notifications.length > 0 && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <AnimatePresence>
-              {notifications.map((n, index) => (
-                <motion.div
-                  key={n.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -40 }}
-                  transition={{ duration: 0.3, delay: index * 0.04 }}
-                  whileHover={{ y: -1, boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
-                  onClick={() => navigate(`/?taskId=${n.task_id}`)}
-                  className={`bg-white border rounded-xl px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#CBD5E1] transition-all duration-200 cursor-pointer ${
-                    n.is_read ? "border-[#E2E8F0]" : "border-[#C4B5FD] bg-[#FAFAFE]"
-                  }`}
-                  style={{ borderLeftWidth: n.is_read ? "3px" : "3px", borderLeftColor: n.is_read ? "#E2E8F0" : "#7C3AED" }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      {/* Header row: from_user → task */}
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#EDE9FE] text-[#7C3AED]">
-                          <AtSign className="w-3 h-3" />
-                          {n.from_username}
+              {notifications.map((n, index) => {
+                const isExpanded = expandedId === n.id;
+                const isReplying = replyingId === n.id;
+
+                return (
+                  <motion.div
+                    key={n.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -40 }}
+                    transition={{ duration: 0.3, delay: index * 0.04 }}
+                    className={`bg-white border rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-200 ${
+                      n.is_read ? "border-[#E2E8F0]" : "border-[#C4B5FD] bg-[#FAFAFE]"
+                    }`}
+                    style={{ borderLeftWidth: n.is_read ? "3px" : "3px", borderLeftColor: n.is_read ? "#E2E8F0" : "#7C3AED" }}
+                  >
+                    {/* Main content */}
+                    <div
+                      onClick={() => { navigate(`/?taskId=${n.task_id}`); }}
+                      className="px-5 py-4 cursor-pointer hover:bg-[#F8FAFC] transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          {/* Header row: from_user → task */}
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#EDE9FE] text-[#7C3AED]">
+                              <AtSign className="w-3 h-3" />
+                              {n.from_username}
+                            </span>
+                            <ChevronRight className="w-3 h-3 text-[#CBD5E1]" />
+                            <span className="text-xs text-[#64748B] truncate max-w-[200px] font-medium">
+                              {n.task_name}
+                            </span>
+                            {!n.is_read && (
+                              <span className="w-2 h-2 rounded-full bg-[#7C3AED] shrink-0" />
+                            )}
+                          </div>
+                          {/* Note content */}
+                          <p className="text-sm text-[#334155] leading-relaxed">
+                            {n.note}
+                          </p>
+                        </div>
+                        <span className="text-[0.625rem] text-[#94A3B8] font-mono shrink-0 mt-1 tabular-nums">
+                          {formatTime(n.created_at)}
                         </span>
-                        <ChevronRight className="w-3 h-3 text-[#CBD5E1]" />
-                        <span className="text-xs text-[#64748B] truncate max-w-[200px]">
-                          {n.task_name}
-                        </span>
-                        {!n.is_read && (
-                          <span className="w-2 h-2 rounded-full bg-[#7C3AED] shrink-0" />
+                      </div>
+                    </div>
+
+                    {/* Replies section */}
+                    {n.replies.length > 0 && (
+                      <div className="px-5 pb-2 border-t border-[#F1F5F9]">
+                        {(!isExpanded ? n.replies.slice(-2) : n.replies).map((r) => (
+                          <div key={r.id} className="flex items-start gap-2 py-1.5">
+                            <CornerDownRight className="w-3 h-3 text-[#CBD5E1] mt-0.5 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[0.6875rem] font-semibold text-[#7C3AED]">{r.from_username}</span>
+                              <span className="text-[0.6875rem] text-[#64748B] ml-1.5">{r.content}</span>
+                            </div>
+                            <span className="text-[0.625rem] text-[#CBD5E1] font-mono shrink-0">{formatTime(r.created_at)}</span>
+                          </div>
+                        ))}
+                        {n.replies.length > 2 && !isExpanded && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleExpand(n.id); }}
+                            className="text-[0.6875rem] text-[#7C3AED] hover:text-[#5B21B6] mt-1 ml-5 cursor-pointer"
+                          >
+                            查看全部 {n.replies.length} 条回复
+                          </button>
                         )}
                       </div>
-                      {/* Note content */}
-                      <p className="text-sm text-[#334155] leading-relaxed line-clamp-2">
-                        {n.note}
-                      </p>
+                    )}
+
+                    {/* Reply input */}
+                    <div className="px-5 pb-3 border-t border-[#F1F5F9] pt-2">
+                      {isReplying ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={replyTexts[n.id] || ""}
+                            onChange={(e) => setReplyTexts((prev) => ({ ...prev, [n.id]: e.target.value }))}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleReply(n.id); }}
+                            placeholder="输入回复..."
+                            className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] focus:border-[#7C3AED] focus:ring-1 focus:ring-[#7C3AED]/20 outline-none transition-all"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => handleReply(n.id)}
+                            disabled={!replyTexts[n.id]?.trim()}
+                            className="p-1.5 rounded-lg bg-[#7C3AED] text-white hover:bg-[#6D28D9] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                          >
+                            <Send className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => { setReplyingId(null); setReplyTexts((prev) => ({ ...prev, [n.id]: "" })); }}
+                            className="text-[0.6875rem] text-[#94A3B8] hover:text-[#64748B] cursor-pointer"
+                          >
+                            取消
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setReplyingId(n.id); }}
+                          className="flex items-center gap-1 text-[0.6875rem] text-[#94A3B8] hover:text-[#7C3AED] transition-colors cursor-pointer"
+                        >
+                          <Reply className="w-3 h-3" />
+                          回复
+                        </button>
+                      )}
                     </div>
-                    <span className="text-[0.625rem] text-[#94A3B8] font-mono shrink-0 mt-1 tabular-nums">
-                      {formatTime(n.created_at)}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
         )}

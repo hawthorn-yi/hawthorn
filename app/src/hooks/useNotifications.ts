@@ -2,6 +2,14 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { getAuthToken } from "@/lib/auth";
 
+export interface NotificationReply {
+  id: string;
+  notification_id: string;
+  from_username: string;
+  content: string;
+  created_at: string;
+}
+
 export interface Notification {
   id: string;
   from_user_id: string;
@@ -14,6 +22,8 @@ export interface Notification {
   mentioned_username: string;
   is_read: boolean;
   created_at: string;
+  reply_count: number;
+  replies: NotificationReply[];
 }
 
 export function useNotifications() {
@@ -37,6 +47,7 @@ export function useNotifications() {
           note,
           mentioned_username,
           is_read,
+          reply_count,
           created_at,
           from_user:from_user_id ( username ),
           task:task_id ( name )
@@ -48,6 +59,38 @@ export function useNotifications() {
       if (error) {
         console.error("Failed to fetch notifications:", error);
         return;
+      }
+
+      // Fetch replies for all notifications
+      const notifIds = (data || []).map((n: Record<string, unknown>) => n.id as string);
+      let repliesMap = new Map<string, NotificationReply[]>();
+
+      if (notifIds.length > 0) {
+        const { data: repliesData } = await supabase
+          .from("mention_replies")
+          .select(`
+            id,
+            notification_id,
+            content,
+            created_at,
+            from_user:from_user_id ( username )
+          `)
+          .in("notification_id", notifIds)
+          .order("created_at", { ascending: true });
+
+        for (const r of (repliesData || [])) {
+          const reply = r as Record<string, unknown>;
+          const fromUser = reply.from_user as Record<string, unknown> | null;
+          const notifId = reply.notification_id as string;
+          if (!repliesMap.has(notifId)) repliesMap.set(notifId, []);
+          repliesMap.get(notifId)!.push({
+            id: reply.id as string,
+            notification_id: notifId,
+            from_username: (fromUser?.username as string) || "未知",
+            content: reply.content as string,
+            created_at: reply.created_at as string,
+          });
+        }
       }
 
       const mapped: Notification[] = (data || []).map((n: Record<string, unknown>) => {
@@ -64,7 +107,9 @@ export function useNotifications() {
           note: n.note as string,
           mentioned_username: n.mentioned_username as string,
           is_read: (n.is_read as boolean) || false,
+          reply_count: (n.reply_count as number) || 0,
           created_at: n.created_at as string,
+          replies: repliesMap.get(n.id as string) || [],
         };
       });
 
@@ -97,7 +142,6 @@ export function useNotifications() {
           filter: `to_user_id=eq.${userId}`,
         },
         () => {
-          // Refetch to get the full joined data
           fetchNotifications();
         }
       )
@@ -135,12 +179,68 @@ export function useNotifications() {
       .eq("is_read", false);
   }, [userId]);
 
+  // Add reply to a notification
+  const addReply = useCallback(
+    async (notificationId: string, progressEntryId: string, content: string) => {
+      const fromUserId = getAuthToken()?.id;
+      const fromUsername = getAuthToken()?.username || "未知";
+      if (!fromUserId || !content.trim()) return;
+
+      const replyId = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      // Optimistic update
+      setNotifications((prev) =>
+        prev.map((n) => {
+          if (n.id !== notificationId) return n;
+          return {
+            ...n,
+            reply_count: n.reply_count + 1,
+            replies: [
+              ...n.replies,
+              {
+                id: replyId,
+                notification_id: notificationId,
+                from_username: fromUsername,
+                content: content.trim(),
+                created_at: now,
+              },
+            ],
+          };
+        })
+      );
+
+      // Write to Supabase
+      await supabase.from("mention_replies").insert({
+        id: replyId,
+        notification_id: notificationId,
+        progress_entry_id: progressEntryId,
+        from_user_id: fromUserId,
+        content: content.trim(),
+      });
+
+      // Increment reply_count by direct update
+      const { data: current } = await supabase
+        .from("notifications")
+        .select("reply_count")
+        .eq("id", notificationId)
+        .single();
+      const currentCount = (current?.reply_count as number) || 0;
+      await supabase
+        .from("notifications")
+        .update({ reply_count: currentCount + 1 })
+        .eq("id", notificationId);
+    },
+    []
+  );
+
   return {
     notifications,
     loading,
     unreadCount,
     markAsRead,
     markAllAsRead,
+    addReply,
     refresh: fetchNotifications,
   };
 }

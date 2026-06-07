@@ -6,7 +6,7 @@ import {
   Plus, Pencil, Trash2, History, Calendar, Clock, ChevronDown,
   ChevronRight, OctagonX, Paperclip, FileText, SlidersHorizontal,
   GripVertical, Download, Upload, Undo2, Eye, RefreshCw, Crown,
-  User,
+  User, CornerDownRight,
 } from "lucide-react";
 import type { DragEndEvent } from "@dnd-kit/core";
 import {
@@ -386,6 +386,15 @@ export default function Dashboard() {
   const [formErrors, setFormErrors] = useState<{ name?: string; deadline?: string; members?: string }>({});
   const [showHistory, setShowHistory] = useState(false);
 
+  // @mention suggestion dropdown
+  const [mentionSuggestions, setMentionSuggestions] = useState<Array<{ id: string; username: string; role: string }>>([]);
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState("");
+  const mentionTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Replies for history display in edit dialog
+  const [historyReplies, setHistoryReplies] = useState<Array<{ id: string; notification_id: string; progress_entry_id: string; from_username: string; content: string; created_at: string }>>([]);
+
   // Member management
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [formAssigneeId, setFormAssigneeId] = useState<string>("");
@@ -487,9 +496,8 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Fetch all users for admin filter dropdown
+  // Fetch all users for @mention suggestions and admin filter dropdown
   useEffect(() => {
-    if (!isAdmin) return;
     const fetchUsers = async () => {
       const { data } = await supabase
         .from("app_users")
@@ -498,7 +506,7 @@ export default function Dashboard() {
       if (data) setAllUsers(data as Array<{ id: string; username: string; role: string }>);
     };
     fetchUsers();
-  }, [isAdmin]);
+  }, []);
 
   // Stats
   const stats = useMemo(() => {
@@ -588,7 +596,7 @@ export default function Dashboard() {
     setModalOpen(true);
   };
 
-  const openEditTask = (task: Task) => {
+  const openEditTask = async (task: Task) => {
     setEditingTask(task);
     setFormName(task.name);
     setFormCategory(task.category);
@@ -602,7 +610,87 @@ export default function Dashboard() {
     const members = getTaskMembers(task.id);
     setSelectedMemberIds(members.filter(m => m.role !== "owner").map(m => m.user_id));
     setFormAssigneeId(task.assignee_id || "");
+
+    // Fetch replies for all history entries of this task
+    const entryIds = task.history.map((e) => e.id);
+    if (entryIds.length > 0) {
+      const { data: repliesData } = await supabase
+        .from("mention_replies")
+        .select(`
+          id,
+          notification_id,
+          progress_entry_id,
+          content,
+          created_at,
+          from_user:from_user_id ( username )
+        `)
+        .in("progress_entry_id", entryIds)
+        .order("created_at", { ascending: true });
+
+      const mapped = (repliesData || []).map((r: Record<string, unknown>) => {
+        const fromUser = r.from_user as Record<string, unknown> | null;
+        return {
+          id: r.id as string,
+          notification_id: r.notification_id as string,
+          progress_entry_id: r.progress_entry_id as string,
+          from_username: (fromUser?.username as string) || "未知",
+          content: r.content as string,
+          created_at: r.created_at as string,
+        };
+      });
+      setHistoryReplies(mapped);
+    } else {
+      setHistoryReplies([]);
+    }
+
     setModalOpen(true);
+  };
+
+  // @mention handler: detect @ in note textarea and show suggestion dropdown
+  const handleNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value.slice(0, 200);
+    setFormNote(value);
+
+    const cursorPos = e.target.selectionStart;
+    const textBefore = value.slice(0, cursorPos);
+    const atMatch = textBefore.match(/@([\w\u4e00-\u9fff]*)$/);
+
+    if (atMatch) {
+      const filter = atMatch[1];
+      setMentionFilter(filter);
+      const filtered = allUsers.filter((u) =>
+        u.username.toLowerCase().includes(filter.toLowerCase())
+      );
+      setMentionSuggestions(filtered);
+      setShowMentionDropdown(filtered.length > 0);
+    } else {
+      setShowMentionDropdown(false);
+    }
+  };
+
+  // Insert selected @username into note
+  const selectMention = (username: string) => {
+    const textarea = mentionTextareaRef.current;
+    if (!textarea) return;
+
+    const cursorPos = textarea.selectionStart;
+    const textBefore = formNote.slice(0, cursorPos);
+    const textAfter = formNote.slice(cursorPos);
+    const atMatch = textBefore.match(/@([\w\u4e00-\u9fff]*)$/);
+
+    if (atMatch) {
+      const beforeAt = textBefore.slice(0, atMatch.index!);
+      const newValue = beforeAt + `@${username} ` + textAfter;
+      setFormNote(newValue.slice(0, 200));
+      setShowMentionDropdown(false);
+
+      // Restore cursor position after inserted username + space
+      setTimeout(() => {
+        const newPos = beforeAt.length + username.length + 2; // @ + username + space
+        textarea.setSelectionRange(newPos, newPos);
+        textarea.focus();
+      }, 0);
+    }
   };
 
   const handleSaveTask = async () => {
@@ -1168,12 +1256,34 @@ export default function Dashboard() {
             </motion.div>
 
             {/* Progress Note */}
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="relative">
               <label className="block text-[0.8125rem] font-medium text-[#64748B] mb-1">更新备注 (可选)</label>
-              <Textarea value={formNote} onChange={(e) => setFormNote(e.target.value.slice(0, 200))}
-                placeholder="描述本次更新的内容..."
+              <Textarea ref={mentionTextareaRef} value={formNote} onChange={handleNoteChange}
+                placeholder="输入 @ 可提及用户..."
                 rows={3} className="rounded-lg px-4 py-3 text-sm bg-[#F1F5F9] border-0 focus:bg-white focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] transition-all resize-none" />
               <p className="text-xs text-[#94A3B8] mt-1 text-right tabular-nums">{formNote.length}/200</p>
+
+              {/* @mention suggestion dropdown */}
+              {showMentionDropdown && (
+                <div className="absolute left-0 right-0 bottom-full mb-1 z-50 bg-white border border-[#E2E8F0] rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.12)] max-h-[180px] overflow-y-auto">
+                  {mentionSuggestions.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); selectMention(u.username); }}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[#334155] hover:bg-[#F8FAFC] transition-colors cursor-pointer text-left"
+                    >
+                      <span className="w-6 h-6 rounded-full bg-[#EDE9FE] flex items-center justify-center text-[0.625rem] font-bold text-[#7C3AED] shrink-0">
+                        {u.username[0].toUpperCase()}
+                      </span>
+                      <span>{u.username}</span>
+                      {u.role === "admin" && (
+                        <span className="text-[0.625rem] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] ml-auto">管理员</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </motion.div>
 
             {/* History */}
@@ -1189,21 +1299,39 @@ export default function Dashboard() {
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
                       <ScrollArea className="max-h-[200px] mt-2">
                         <div className="flex flex-col gap-2">
-                          {[...editingTask.history].reverse().map((entry) => (
-                            <div key={entry.id} className="flex items-center gap-3 text-xs py-1.5 px-2 rounded-md bg-[#F8FAFC]">
-                              <span className="font-mono text-[#94A3B8] shrink-0 min-w-[130px]">{formatDateTime(entry.timestamp)}</span>
-                              <div className="w-12 h-1 bg-[#E2E8F0] rounded-full overflow-hidden shrink-0">
-                                <div className="h-full bg-[#3B82F6] rounded-full transition-all duration-500" style={{ width: `${entry.progress}%` }} />
+                          {[...editingTask.history].reverse().map((entry) => {
+                            const entryReplies = historyReplies.filter((r) => r.progress_entry_id === entry.id);
+                            return (
+                              <div key={entry.id}>
+                                <div className="flex items-center gap-3 text-xs py-1.5 px-2 rounded-md bg-[#F8FAFC]">
+                                  <span className="font-mono text-[#94A3B8] shrink-0 min-w-[130px]">{formatDateTime(entry.timestamp)}</span>
+                                  <div className="w-12 h-1 bg-[#E2E8F0] rounded-full overflow-hidden shrink-0">
+                                    <div className="h-full bg-[#3B82F6] rounded-full transition-all duration-500" style={{ width: `${entry.progress}%` }} />
+                                  </div>
+                                  <span className="font-mono text-[#475569] font-semibold shrink-0 w-8 tabular-nums">{entry.progress}%</span>
+                                  {entry.username && (
+                                    <span className="text-[#94A3B8] shrink-0 flex items-center gap-0.5">
+                                      <User className="w-3 h-3" />{entry.username}
+                                    </span>
+                                  )}
+                                  <span className="text-[#64748B] truncate">{entry.note}</span>
+                                </div>
+                                {/* Replies under this entry */}
+                                {entryReplies.length > 0 && (
+                                  <div className="ml-4 mt-0.5 flex flex-col gap-0.5">
+                                    {entryReplies.map((r) => (
+                                      <div key={r.id} className="flex items-center gap-2 text-[0.6875rem] py-0.5 px-2">
+                                        <CornerDownRight className="w-3 h-3 text-[#CBD5E1] shrink-0" />
+                                        <span className="font-semibold text-[#7C3AED]">{r.from_username}</span>
+                                        <span className="text-[#94A3B8] italic">{r.content}</span>
+                                        <span className="text-[#CBD5E1] font-mono text-[0.625rem] ml-auto">{formatDateTime(r.created_at).slice(5)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                              <span className="font-mono text-[#475569] font-semibold shrink-0 w-8 tabular-nums">{entry.progress}%</span>
-                              {entry.username && (
-                                <span className="text-[#94A3B8] shrink-0 flex items-center gap-0.5">
-                                  <User className="w-3 h-3" />{entry.username}
-                                </span>
-                              )}
-                              <span className="text-[#64748B] truncate">{entry.note}</span>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </ScrollArea>
                     </motion.div>
