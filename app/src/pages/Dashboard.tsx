@@ -1414,6 +1414,14 @@ export default function Dashboard() {
                 const taskCount = tasks.filter((t) => t.category === cat.id).length;
                 return (
                 <div key={cat.id} className="flex items-center gap-3 p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#CBD5E1] transition-all">
+                  {/* Delete button for all categories - left side */}
+                  <button
+                    onClick={() => { setDeleteCategoryId(cat.id); setDeleteCategoryTaskCount(taskCount); }}
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#EF4444] hover:bg-[#FFF1F2] transition-colors cursor-pointer shrink-0"
+                    title="删除分类"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                   <div className="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center shadow-sm"
                     style={{ backgroundColor: cat.color }}>
                     <div className="w-3 h-3 rounded-full bg-white/40" />
@@ -1429,14 +1437,6 @@ export default function Dashboard() {
                         title={color} />
                     ))}
                   </div>
-                  {/* Delete button for all categories */}
-                  <button
-                    onClick={() => { setDeleteCategoryId(cat.id); setDeleteCategoryTaskCount(taskCount); }}
-                    className="w-7 h-7 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#EF4444] hover:bg-[#FFF1F2] transition-colors cursor-pointer shrink-0 ml-2"
-                    title="删除分类"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
                 </div>
                 );
               })}

@@ -474,9 +474,22 @@ export function useTaskManager() {
   }, [tasks]);
 
   const deleteTask = useCallback(async (taskId: string) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    const token = getAuthToken();
+    const isAdmin = token?.role === "admin";
+    const isOwner = token?.id && task.owner_id === token.id;
+
+    // Only admin or owner can delete
+    if (!isAdmin && !isOwner) {
+      toast.error("只有任务创建者和管理员才能删除任务");
+      return;
+    }
+
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
     await supabase.from("tasks").delete().eq("id", taskId);
-  }, []);
+  }, [tasks]);
 
   const toggleComplete = useCallback(async (taskId: string) => {
     const task = tasks.find((t) => t.id === taskId);
