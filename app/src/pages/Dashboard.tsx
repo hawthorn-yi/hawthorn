@@ -405,6 +405,7 @@ export default function Dashboard() {
 
   const [_highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
   const [showTerminated, setShowTerminated] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   // User filter (admin only)
   const [userFilterId, setUserFilterId] = useState<string>("");
@@ -507,6 +508,11 @@ export default function Dashboard() {
     fetchUsers();
   }, []);
 
+  // Auto-expand completed section when filtering by completed
+  useEffect(() => {
+    if (filter === "completed") setShowCompleted(true);
+  }, [filter]);
+
   // Stats
   const stats = useMemo(() => {
     const total = tasks.length;
@@ -524,13 +530,15 @@ export default function Dashboard() {
   }, [tasks]);
 
   const terminatedTasks = useMemo(() => tasks.filter((t) => t.status === "terminated"), [tasks]);
+  const completedTasks = useMemo(() => tasks.filter((t) => t.status === "completed"), [tasks]);
 
   // Filtered & sorted
   const filteredTasks = useMemo(() => {
     let result = [...tasks];
     if (!showTerminated) result = result.filter((t) => t.status !== "terminated");
+    // Always exclude completed tasks from main list (they go to collapsed section)
+    result = result.filter((t) => t.status !== "completed");
     if (filter === "in-progress") result = result.filter((t) => t.status === "active");
-    else if (filter === "completed") result = result.filter((t) => t.status === "completed");
     else if (filter === "overdue") result = result.filter((t) => t.status === "overdue");
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -1092,6 +1100,41 @@ export default function Dashboard() {
                     })
                   )}
                 </AnimatePresence>
+
+                {/* Completed Projects */}
+                {completedTasks.length > 0 && (
+                  <div className="mt-4">
+                    <button onClick={() => setShowCompleted(!showCompleted)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] text-sm text-[#059669] hover:bg-[#D1FAE5] hover:border-[#6EE7B7] transition-all duration-200 cursor-pointer w-full">
+                      <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${showCompleted ? "rotate-90" : ""}`} />
+                      <span className="font-medium">已完成项目</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-[#A7F3D0] text-[#059669] tabular-nums">{completedTasks.length}</span>
+                    </button>
+                    <AnimatePresence>
+                      {showCompleted && (
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
+                          <div className="flex flex-col gap-3 mt-3">
+                            {completedTasks.map((task, index) => (
+                              <motion.div key={task.id} layout initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: index * 0.08 }}
+                                className="bg-white border border-[#A7F3D0] rounded-xl px-5 py-4 opacity-75"
+                                style={{ borderLeftWidth: "3px", borderLeftColor: "#10B981" }}>
+                                <div className="flex items-center gap-4">
+                                  <span className="font-mono text-xs text-[#94A3B8]">#{index + 1}</span>
+                                  <span className="flex-1 text-sm font-semibold text-[#64748B] line-through truncate">{task.name}</span>
+                                  <span className="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#ECFDF5] text-[#059669]">已完成</span>
+                                  <button onClick={() => openEditTask(task)} className="w-8 h-8 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#3B82F6] cursor-pointer" title="编辑"><Pencil className="w-3.5 h-3.5" /></button>
+                                  {(isAdmin || task.owner_id === currentUserId) && (
+                                    <button onClick={() => handleDelete(task)} className="w-8 h-8 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#F43F5E] cursor-pointer" title="删除"><Trash2 className="w-3.5 h-3.5" /></button>
+                                  )}
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
 
                 {/* Terminated Projects */}
                 {terminatedTasks.length > 0 && (
