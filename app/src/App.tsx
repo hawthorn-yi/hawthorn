@@ -11,6 +11,7 @@ import Admin from "./pages/Admin";
 import Account from "./pages/Account";
 import FollowUp from "./pages/FollowUp";
 import Mentions from "./pages/Mentions";
+import MyMentions from "./pages/MyMentions";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 
@@ -99,6 +100,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Mentions />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-mentions"
+        element={
+          <ProtectedRoute>
+            <MyMentions />
           </ProtectedRoute>
         }
       />

@@ -14,6 +14,7 @@ import {
   Shield,
   ClipboardList,
   AtSign,
+  Forward,
 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -240,6 +241,35 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                 )}
                 {mentionCount === 0 && location.pathname === "/mentions" && (
                   <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3B82F6]" />
+                )}
+              </>
+            )}
+          </button>
+
+          {/* My @ mentions (I @ others) */}
+          <button
+            onClick={() => {
+              navigate("/my-mentions");
+              if (isMobile) onMobileClose();
+            }}
+            className={`
+              flex items-center gap-3 rounded-lg transition-all duration-150 cursor-pointer
+              ${collapsed && !isMobile ? "justify-center px-0 py-2.5 mt-1" : "px-3 py-2.5 mt-1"}
+              ${location.pathname === "/my-mentions"
+                ? "bg-[#F59E0B]/20 text-[#FBBF24]"
+                : "text-[#94A3B8] hover:bg-[#1E293B] hover:text-[#FCD34D]"
+              }
+            `}
+            title={collapsed ? "我@别人的" : undefined}
+          >
+            <Forward className={`w-5 h-5 shrink-0 ${location.pathname === "/my-mentions" ? "text-[#FBBF24]" : ""}`} />
+            {(!collapsed || isMobile) && (
+              <>
+                <span className={`text-sm font-medium whitespace-nowrap ${location.pathname === "/my-mentions" ? "font-semibold" : ""}`}>
+                  我@别人的
+                </span>
+                {location.pathname === "/my-mentions" && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
                 )}
               </>
             )}
