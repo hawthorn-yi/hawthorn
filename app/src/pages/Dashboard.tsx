@@ -123,14 +123,16 @@ function StatsCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
-      whileHover={{ y: -2, boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
-      className="bg-white border border-[#E2E8F0] rounded-xl p-3 sm:p-5 cursor-default transition-shadow duration-200"
+      whileHover={{ y: -1, boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
+      className="bg-white border border-[#E2E8F0] rounded-lg sm:rounded-xl px-3 py-2 sm:px-4 sm:py-2.5 cursor-default transition-shadow duration-200 flex items-center gap-2.5 sm:gap-3"
     >
-      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center mb-1.5 sm:mb-3" style={{ backgroundColor: iconBg }}>
-        <Icon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: iconColor }} />
+      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: iconBg }}>
+        <Icon className="w-4 h-4 sm:w-4.5 sm:h-4.5" style={{ color: iconColor }} />
       </div>
-      <p className="text-xl sm:text-[1.875rem] font-bold text-[#1E293B] leading-tight tabular-nums">{value}</p>
-      <p className="text-[0.625rem] sm:text-xs text-[#94A3B8] mt-0.5">{label}</p>
+      <div className="min-w-0">
+        <p className="text-lg sm:text-xl font-bold text-[#1E293B] leading-tight tabular-nums">{value}</p>
+        <p className="text-[0.625rem] sm:text-[0.6875rem] text-[#94A3B8] mt-0.5">{label}</p>
+      </div>
     </motion.div>
   );
 }
@@ -1017,7 +1019,7 @@ export default function Dashboard() {
         {/* Main Content - flex column, fixed header + scrollable task list */}
         <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
           {/* Fixed top section: digest banner + stats + mobile filters + search bar */}
-          <div className="shrink-0 px-2 sm:px-4 md:px-6 pt-2 sm:pt-5 pb-0 bg-[#F8FAFC]">
+          <div className="shrink-0 px-2 sm:px-4 md:px-6 pt-2 sm:pt-3 pb-0 bg-[#F8FAFC]">
           {/* Daily Digest Banner */}
           <AnimatePresence>
             {showDigest && (
@@ -1038,7 +1040,7 @@ export default function Dashboard() {
           </AnimatePresence>
 
           {/* Stats Row */}
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-4 mb-2 sm:mb-4">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5 mb-2 sm:mb-3">
             <StatsCard icon={Inbox} iconColor="#64748B" iconBg="#F1F5F9" value={stats.total} label="任务总数" delay={0.1} />
             <StatsCard icon={TrendingUp} iconColor="#3B82F6" iconBg="#EFF6FF" value={stats.inProgress} label="进行中" delay={0.2} />
             <StatsCard icon={Check} iconColor="#10B981" iconBg="#ECFDF5" value={stats.completed} label="已完成" delay={0.3} />
@@ -1058,7 +1060,7 @@ export default function Dashboard() {
           </div>
 
           {/* Search & Sort Bar */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="flex items-center gap-1.5 sm:gap-3 mb-2 sm:mb-3 flex-wrap">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-2.5 flex-wrap">
             <div className="relative flex-1 md:max-w-[400px]">
               <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#94A3B8] pointer-events-none" />
               <Input value={search} onChange={(e) => setSearch(e.target.value)}
