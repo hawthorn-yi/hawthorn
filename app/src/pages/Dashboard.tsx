@@ -700,7 +700,7 @@ export default function Dashboard() {
 
     const cursorPos = e.target.selectionStart;
     const textBefore = value.slice(0, cursorPos);
-    const atMatch = textBefore.match(/@([\w\u4e00-\u9fff]*)$/);
+    const atMatch = textBefore.match(/@((?:[\u4e00-\u9fff\u3400-\u4dbf]+(?: [\u4e00-\u9fff\u3400-\u4dbf]+)*)|(?:[\w]*))$/);
 
     if (atMatch) {
       const filter = atMatch[1];
@@ -723,7 +723,7 @@ export default function Dashboard() {
     const cursorPos = textarea.selectionStart;
     const textBefore = formNote.slice(0, cursorPos);
     const textAfter = formNote.slice(cursorPos);
-    const atMatch = textBefore.match(/@([\w\u4e00-\u9fff]*)$/);
+    const atMatch = textBefore.match(/@((?:[\u4e00-\u9fff\u3400-\u4dbf]+(?: [\u4e00-\u9fff\u3400-\u4dbf]+)*)|(?:[\w]*))$/);
 
     if (atMatch) {
       const beforeAt = textBefore.slice(0, atMatch.index!);
