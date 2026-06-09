@@ -366,8 +366,9 @@ export default function Dashboard() {
 
   const [filter, setFilter] = useState<FilterType>("all");
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<"manual" | "newest" | "oldest" | "deadline" | "progress-high" | "progress-low">("manual");
+  const [sortBy, setSortBy] = useState<"manual" | "newest" | "oldest" | "deadline" | "progress-high" | "progress-low" | "name">("manual");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [digestDismissed, setDigestDismissed] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -544,6 +545,10 @@ export default function Dashboard() {
       const q = search.toLowerCase();
       result = result.filter((t) => t.name.toLowerCase().includes(q));
     }
+    // Category filter
+    if (categoryFilter) {
+      result = result.filter((t) => t.category === categoryFilter);
+    }
     // User filter (admin only - filter tasks by selected user)
     if (userFilterId) {
       result = result.filter((t) => {
@@ -560,9 +565,10 @@ export default function Dashboard() {
       case "deadline": result.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()); break;
       case "progress-high": result.sort((a, b) => b.progress - a.progress); break;
       case "progress-low": result.sort((a, b) => a.progress - b.progress); break;
+      case "name": result.sort((a, b) => a.name.localeCompare(b.name, "zh-CN")); break;
     }
     return result;
-  }, [tasks, filter, search, sortBy, showTerminated, userFilterId, projectMembers]);
+  }, [tasks, filter, search, sortBy, showTerminated, userFilterId, categoryFilter, projectMembers]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -996,6 +1002,23 @@ export default function Dashboard() {
                 placeholder="搜索任务名称..."
                 className="h-10 pl-10 pr-4 rounded-lg bg-[#F1F5F9] border-0 text-sm text-[#64748B] placeholder:text-[#94A3B8] focus:bg-white focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] transition-all" />
             </div>
+            {/* Category Filter */}
+            <Select value={categoryFilter || "__all__"} onValueChange={(v) => setCategoryFilter(v === "__all__" ? "" : v)}>
+              <SelectTrigger className="h-10 px-3 rounded-lg bg-[#F1F5F9] border-0 text-sm text-[#64748B] focus:bg-white focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] transition-all min-w-[130px]">
+                <SelectValue placeholder="按分类筛选..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">全部分类</SelectItem>
+                {allCategories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                      {cat.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {/* Admin User Filter */}
             {isAdmin && (
               <div className="relative">
@@ -1035,6 +1058,7 @@ export default function Dashboard() {
                       { key: "deadline" as const, label: "按截止日期" },
                       { key: "progress-high" as const, label: "进度高→低" },
                       { key: "progress-low" as const, label: "进度低→高" },
+                      { key: "name" as const, label: "按任务名称" },
                     ].map((opt) => (
                       <button key={opt.key} onClick={() => { setSortBy(opt.key); setShowSortDropdown(false); }}
                         className={`w-full text-left px-4 py-2.5 text-sm transition-colors cursor-pointer ${sortBy === opt.key ? "text-[#2563EB] font-medium bg-[#EFF6FF]" : "text-[#64748B] hover:bg-[#F8FAFC]"}`}>
