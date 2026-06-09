@@ -1860,10 +1860,10 @@ export default function Dashboard() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
-              className="fixed top-0 right-0 h-full w-full md:w-[420px] max-w-[100vw] bg-white shadow-[-8px_0_30px_rgba(0,0,0,0.12)] z-[950] flex flex-col overflow-hidden"
+              className="fixed top-0 right-0 h-full w-full md:w-[420px] max-w-[100vw] bg-white shadow-[-8px_0_30px_rgba(0,0,0,0.12)] z-[950] flex flex-col overflow-hidden pt-[max(44px,env(safe-area-inset-top))]"
             >
               {/* Header */}
-              <div className="px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-[#E2E8F0] bg-[#EFF6FF] shrink-0">
+              <div className="px-5 py-4 border-b border-[#E2E8F0] bg-[#EFF6FF] shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 flex-1">
                     <h3 className="text-sm font-bold text-[#1E293B] truncate">{drawerTask.name}</h3>
