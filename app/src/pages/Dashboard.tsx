@@ -366,7 +366,7 @@ export default function Dashboard() {
 
   const [filter, setFilter] = useState<FilterType>("all");
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<"manual" | "newest" | "oldest" | "deadline" | "progress-high" | "progress-low" | "name">("manual");
+  const [sortBy, setSortBy] = useState<"manual" | "newest" | "oldest" | "deadline" | "progress-high" | "progress-low" | "name" | "latest-update">("latest-update");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [digestDismissed, setDigestDismissed] = useState(false);
@@ -530,8 +530,28 @@ export default function Dashboard() {
     return { dueToday, overdue: overdueCount };
   }, [tasks]);
 
-  const terminatedTasks = useMemo(() => tasks.filter((t) => t.status === "terminated"), [tasks]);
-  const completedTasks = useMemo(() => tasks.filter((t) => t.status === "completed"), [tasks]);
+  const terminatedTasks = useMemo(() => {
+    const result = tasks.filter((t) => t.status === "terminated");
+    if (sortBy === "latest-update") {
+      result.sort((a, b) => {
+        const aLatest = a.history.length > 0 ? new Date(a.history[a.history.length - 1].timestamp).getTime() : new Date(a.createdDate).getTime();
+        const bLatest = b.history.length > 0 ? new Date(b.history[b.history.length - 1].timestamp).getTime() : new Date(b.createdDate).getTime();
+        return bLatest - aLatest;
+      });
+    }
+    return result;
+  }, [tasks, sortBy]);
+  const completedTasks = useMemo(() => {
+    const result = tasks.filter((t) => t.status === "completed");
+    if (sortBy === "latest-update") {
+      result.sort((a, b) => {
+        const aLatest = a.history.length > 0 ? new Date(a.history[a.history.length - 1].timestamp).getTime() : new Date(a.createdDate).getTime();
+        const bLatest = b.history.length > 0 ? new Date(b.history[b.history.length - 1].timestamp).getTime() : new Date(b.createdDate).getTime();
+        return bLatest - aLatest;
+      });
+    }
+    return result;
+  }, [tasks, sortBy]);
 
   // Filtered & sorted
   const filteredTasks = useMemo(() => {
@@ -560,6 +580,11 @@ export default function Dashboard() {
     }
     switch (sortBy) {
       case "manual": result.sort((a, b) => a.sort_order - b.sort_order); break;
+      case "latest-update": result.sort((a, b) => {
+        const aLatest = a.history.length > 0 ? new Date(a.history[a.history.length - 1].timestamp).getTime() : new Date(a.createdDate).getTime();
+        const bLatest = b.history.length > 0 ? new Date(b.history[b.history.length - 1].timestamp).getTime() : new Date(b.createdDate).getTime();
+        return bLatest - aLatest;
+      }); break;
       case "newest": result.sort((a, b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime()); break;
       case "oldest": result.sort((a, b) => new Date(a.createdDate).getTime() - new Date(b.createdDate).getTime()); break;
       case "deadline": result.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()); break;
@@ -1052,13 +1077,14 @@ export default function Dashboard() {
                   <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.2 }}
                     className="absolute right-0 top-12 z-20 bg-white rounded-xl border border-[#E2E8F0] shadow-[0_8px_24px_rgba(0,0,0,0.1)] py-1 min-w-[180px]">
                     {[
-                      { key: "manual" as const, label: "默认顺序" },
+                      { key: "latest-update" as const, label: "最近更新" },
                       { key: "newest" as const, label: "最新优先" },
                       { key: "oldest" as const, label: "最早优先" },
                       { key: "deadline" as const, label: "按截止日期" },
                       { key: "progress-high" as const, label: "进度高→低" },
                       { key: "progress-low" as const, label: "进度低→高" },
                       { key: "name" as const, label: "按任务名称" },
+                      { key: "manual" as const, label: "默认顺序" },
                     ].map((opt) => (
                       <button key={opt.key} onClick={() => { setSortBy(opt.key); setShowSortDropdown(false); }}
                         className={`w-full text-left px-4 py-2.5 text-sm transition-colors cursor-pointer ${sortBy === opt.key ? "text-[#2563EB] font-medium bg-[#EFF6FF]" : "text-[#64748B] hover:bg-[#F8FAFC]"}`}>
