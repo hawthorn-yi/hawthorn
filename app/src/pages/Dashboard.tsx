@@ -1841,8 +1841,8 @@ export default function Dashboard() {
       </Dialog>
 
       {/* Right-side History Drawer - rendered via Portal to avoid iOS stacking context issues */}
-      <AnimatePresence>
-        {drawerTask && createPortal(
+      {drawerTask && createPortal(
+        <AnimatePresence>
           <>
             {/* Backdrop */}
             <motion.div
@@ -1974,10 +1974,10 @@ export default function Dashboard() {
                 </div>
               </div>
             </motion.div>
-          </>,
-          document.body
-        )}
-      </AnimatePresence>
+          </>
+        </AnimatePresence>,
+        document.body
+      )}
     </Layout>
   );
 }
