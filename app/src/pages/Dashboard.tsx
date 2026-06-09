@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -1839,9 +1840,9 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Right-side History Drawer */}
+      {/* Right-side History Drawer - rendered via Portal to avoid iOS stacking context issues */}
       <AnimatePresence>
-        {drawerTask && (
+        {drawerTask && createPortal(
           <>
             {/* Backdrop */}
             <motion.div
@@ -1973,7 +1974,8 @@ export default function Dashboard() {
                 </div>
               </div>
             </motion.div>
-          </>
+          </>,
+          document.body
         )}
       </AnimatePresence>
     </Layout>
