@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, AtSign, MessageSquare, Inbox, ChevronRight,
+  ArrowLeft, AtSign, Inbox, ChevronRight,
   CornerDownRight, CheckCircle2, Clock,
+  ChevronDown, X,
 } from "lucide-react";
 import { useMyMentions } from "@/hooks/useMyMentions";
 
@@ -25,15 +26,35 @@ function formatTime(iso: string): string {
 
 export default function MyMentions() {
   const navigate = useNavigate();
-  const { mentions, loading } = useMyMentions();
+  const { groupedMentions, mentions, loading } = useMyMentions();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [mentionedUserFilter, setMentionedUserFilter] = useState<string>("");
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
 
   const toggleExpand = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
-  const repliedCount = mentions.filter((m) => m.has_reply).length;
-  const unrepliedCount = mentions.filter((m) => !m.has_reply).length;
+  // Extract all unique mentioned users for filter
+  const allMentionedUsers = useMemo(() => {
+    const users = new Set<string>();
+    for (const g of groupedMentions) {
+      for (const u of g.mentioned_users) {
+        users.add(u);
+      }
+    }
+    return Array.from(users).sort();
+  }, [groupedMentions]);
+
+  // Filter groups by selected user
+  const filteredGroups = useMemo(() => {
+    if (!mentionedUserFilter) return groupedMentions;
+    return groupedMentions.filter((g) => g.mentioned_users.includes(mentionedUserFilter));
+  }, [groupedMentions, mentionedUserFilter]);
+
+  const repliedCount = filteredGroups.filter((g) => g.has_reply).length;
+  const unrepliedCount = filteredGroups.filter((g) => !g.has_reply).length;
+  const selectedUserLabel = mentionedUserFilter || "全部";
 
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
@@ -64,7 +85,7 @@ export default function MyMentions() {
               <AtSign className="w-5 h-5 text-[#3B82F6]" />
             </div>
             <div>
-              <p className="text-[1.375rem] font-bold text-[#1E293B] tabular-nums">{mentions.length}</p>
+              <p className="text-[1.375rem] font-bold text-[#1E293B] tabular-nums">{filteredGroups.length}</p>
               <p className="text-xs text-[#94A3B8]">全部@消息</p>
             </div>
           </div>
@@ -88,6 +109,75 @@ export default function MyMentions() {
           </div>
         </motion.div>
 
+        {/* Mentioned User Filter */}
+        {allMentionedUsers.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="relative mb-4"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-[#64748B] shrink-0">按@人筛选:</span>
+              <button
+                onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white border border-[#E2E8F0] rounded-lg text-xs font-medium text-[#334155] hover:border-[#3B82F6] hover:text-[#3B82F6] transition-colors cursor-pointer"
+              >
+                {mentionedUserFilter ? (
+                  <span className="inline-flex items-center gap-1">
+                    <AtSign className="w-3 h-3" />{mentionedUserFilter}
+                  </span>
+                ) : (
+                  <span>全部</span>
+                )}
+                <ChevronDown className={`w-3 h-3 text-[#94A3B8] transition-transform ${filterDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+              {mentionedUserFilter && (
+                <button
+                  onClick={() => setMentionedUserFilter("")}
+                  className="p-1 rounded hover:bg-[#F1F5F9] text-[#94A3B8] hover:text-[#64748B] cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            <AnimatePresence>
+              {filterDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setFilterDropdownOpen(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute top-full left-0 mt-1 z-20 bg-white border border-[#E2E8F0] rounded-lg shadow-lg py-1.5 min-w-[160px]"
+                  >
+                    <button
+                      onClick={() => { setMentionedUserFilter(""); setFilterDropdownOpen(false); }}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors cursor-pointer ${!mentionedUserFilter ? "bg-[#EFF6FF] text-[#2563EB] font-medium" : "text-[#475569] hover:bg-[#F8FAFC]"}`}
+                    >
+                      全部 ({groupedMentions.length})
+                    </button>
+                    {allMentionedUsers.map((user) => {
+                      const count = groupedMentions.filter((g) => g.mentioned_users.includes(user)).length;
+                      return (
+                        <button
+                          key={user}
+                          onClick={() => { setMentionedUserFilter(user); setFilterDropdownOpen(false); }}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors cursor-pointer ${mentionedUserFilter === user ? "bg-[#EFF6FF] text-[#2563EB] font-medium" : "text-[#475569] hover:bg-[#F8FAFC]"}`}
+                        >
+                          <AtSign className="w-3 h-3 shrink-0" />{user}
+                          <span className="ml-auto text-[#94A3B8] tabular-nums">({count})</span>
+                        </button>
+                      );
+                    })}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+
         {/* Loading */}
         {loading && (
           <div className="flex items-center justify-center py-16">
@@ -96,7 +186,7 @@ export default function MyMentions() {
         )}
 
         {/* Empty state */}
-        {!loading && mentions.length === 0 && (
+        {!loading && filteredGroups.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -107,20 +197,30 @@ export default function MyMentions() {
               <Inbox className="w-16 h-16 text-[#CBD5E1] mb-4" />
             </motion.div>
             <p className="text-xl font-semibold text-[#64748B]">暂无@消息</p>
-            <p className="text-sm text-[#94A3B8] mt-1">当你在任务中 @别人 时，会在这里显示</p>
+            <p className="text-sm text-[#94A3B8] mt-1">
+              {mentionedUserFilter ? `没有@${mentionedUserFilter}的消息` : "当你在任务中 @别人 时，会在这里显示"}
+            </p>
+            {mentionedUserFilter && (
+              <button
+                onClick={() => setMentionedUserFilter("")}
+                className="mt-3 text-xs font-medium text-[#3B82F6] hover:underline cursor-pointer"
+              >
+                清除筛选
+              </button>
+            )}
           </motion.div>
         )}
 
         {/* Mention List */}
-        {!loading && mentions.length > 0 && (
+        {!loading && filteredGroups.length > 0 && (
           <div className="flex flex-col gap-3">
             <AnimatePresence>
-              {mentions.map((m, index) => {
-                const isExpanded = expandedId === m.id;
+              {filteredGroups.map((g, index) => {
+                const isExpanded = expandedId === g.progress_entry_id;
 
                 return (
                   <motion.div
-                    key={m.id}
+                    key={g.progress_entry_id}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -40 }}
@@ -128,27 +228,29 @@ export default function MyMentions() {
                     className="bg-white border border-[#E2E8F0] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-200"
                     style={{
                       borderLeftWidth: "3px",
-                      borderLeftColor: m.has_reply ? "#10B981" : "#F59E0B",
+                      borderLeftColor: g.has_reply ? "#10B981" : "#F59E0B",
                     }}
                   >
                     {/* Main content */}
                     <div
-                      onClick={() => { navigate(`/?taskId=${m.task_id}`); }}
+                      onClick={() => { navigate(`/?taskId=${g.task_id}`); }}
                       className="px-5 py-4 cursor-pointer hover:bg-[#F8FAFC] transition-colors rounded-xl"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          {/* Header row */}
+                          {/* @'d users */}
                           <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#EFF6FF] text-[#3B82F6]">
-                              <AtSign className="w-3 h-3" />
-                              {m.mentioned_username}
-                            </span>
-                            <ChevronRight className="w-3 h-3 text-[#CBD5E1]" />
+                            {g.mentioned_users.map((user) => (
+                              <span key={user} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#EFF6FF] text-[#3B82F6]">
+                                <AtSign className="w-3 h-3" />
+                                {user}
+                              </span>
+                            ))}
+                            <ChevronRight className="w-3 h-3 text-[#CBD5E1] shrink-0" />
                             <span className="text-xs text-[#64748B] truncate max-w-[200px] font-medium">
-                              {m.task_name}
+                              {g.task_name}
                             </span>
-                            {m.has_reply ? (
+                            {g.has_reply ? (
                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[0.625rem] font-medium bg-[#ECFDF5] text-[#059669]">
                                 <CheckCircle2 className="w-2.5 h-2.5" />已回复
                               </span>
@@ -160,19 +262,19 @@ export default function MyMentions() {
                           </div>
                           {/* Note content */}
                           <p className="text-sm text-[#334155] leading-relaxed">
-                            {m.note}
+                            {g.note}
                           </p>
                         </div>
                         <span className="text-[0.625rem] text-[#94A3B8] font-mono shrink-0 mt-1 tabular-nums">
-                          {formatTime(m.created_at)}
+                          {formatTime(g.created_at)}
                         </span>
                       </div>
                     </div>
 
                     {/* Replies section */}
-                    {m.replies.length > 0 && (
+                    {g.replies.length > 0 && (
                       <div className="px-5 pb-2 border-t border-[#F1F5F9]">
-                        {(!isExpanded ? m.replies.slice(-2) : m.replies).map((r) => (
+                        {(!isExpanded ? g.replies.slice(-2) : g.replies).map((r) => (
                           <div key={r.id} className="flex items-start gap-2 py-1.5">
                             <CornerDownRight className="w-3 h-3 text-[#CBD5E1] mt-0.5 shrink-0" />
                             <div className="flex-1 min-w-0">
@@ -182,12 +284,12 @@ export default function MyMentions() {
                             <span className="text-[0.625rem] text-[#CBD5E1] font-mono shrink-0">{formatTime(r.created_at)}</span>
                           </div>
                         ))}
-                        {m.replies.length > 2 && !isExpanded && (
+                        {g.replies.length > 2 && !isExpanded && (
                           <button
-                            onClick={(e) => { e.stopPropagation(); toggleExpand(m.id); }}
+                            onClick={(e) => { e.stopPropagation(); toggleExpand(g.progress_entry_id); }}
                             className="text-[0.6875rem] text-[#7C3AED] hover:text-[#5B21B6] mt-1 ml-5 cursor-pointer"
                           >
-                            查看全部 {m.replies.length} 条回复
+                            查看全部 {g.replies.length} 条回复
                           </button>
                         )}
                       </div>

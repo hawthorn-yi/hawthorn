@@ -28,8 +28,23 @@ export interface MyMention {
   replies: MyMentionReply[];
 }
 
+// Grouped: multiple @mentions in the same note share the same progress_entry_id
+export interface MyMentionGroup {
+  progress_entry_id: string;
+  task_id: string;
+  task_name: string;
+  note: string;
+  created_at: string;
+  // All @'d users in this group
+  mentioned_users: string[];
+  // The first mention's replies (shared across the group)
+  replies: MyMentionReply[];
+  has_reply: boolean;
+}
+
 export function useMyMentions() {
   const [mentions, setMentions] = useState<MyMention[]>([]);
+  const [groupedMentions, setGroupedMentions] = useState<MyMentionGroup[]>([]);
   const [loading, setLoading] = useState(true);
 
   const userId = getAuthToken()?.id;
@@ -121,6 +136,41 @@ export function useMyMentions() {
       });
 
       setMentions(mapped);
+
+      // Group by progress_entry_id so all @'d users in the same note are together
+      const groupMap = new Map<string, MyMentionGroup>();
+      for (const m of mapped) {
+        if (!groupMap.has(m.progress_entry_id)) {
+          groupMap.set(m.progress_entry_id, {
+            progress_entry_id: m.progress_entry_id,
+            task_id: m.task_id,
+            task_name: m.task_name,
+            note: m.note,
+            created_at: m.created_at,
+            mentioned_users: [],
+            replies: [],
+            has_reply: false,
+          });
+        }
+        const group = groupMap.get(m.progress_entry_id)!;
+        // Dedupe mentioned users
+        if (!group.mentioned_users.includes(m.mentioned_username)) {
+          group.mentioned_users.push(m.mentioned_username);
+        }
+        // Merge replies (same progress_entry_id may have multiple rows)
+        for (const r of m.replies) {
+          if (!group.replies.some((gr) => gr.id === r.id)) {
+            group.replies.push(r);
+          }
+        }
+        if (m.has_reply) group.has_reply = true;
+      }
+
+      // Sort groups by created_at desc
+      const groups = Array.from(groupMap.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setGroupedMentions(groups);
     } catch (err) {
       console.error("Error fetching my mentions:", err);
     } finally {
@@ -154,6 +204,7 @@ export function useMyMentions() {
 
   return {
     mentions,
+    groupedMentions,
     loading,
     refresh: fetchMyMentions,
   };
