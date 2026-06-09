@@ -168,7 +168,7 @@ function DeleteModal({ task, open, onClose, onConfirm }: {
 }
 
 /* ─────────────── Sortable Task Card Wrapper ─────────────── */
-function SortableTaskCard({ task, index, allCategories, projectMembers, onToggleComplete, onEdit, onDelete, onHistory, onDeadlineClick, onNameClick, isAdmin, currentUserId }: {
+function SortableTaskCard({ task, index, allCategories, projectMembers, onToggleComplete, onEdit, onDelete, onHistory, onDeadlineClick, onNameClick, isAdmin, currentUserId, isHighlighted }: {
   task: Task;
   index: number;
   allCategories: { id: string; name: string; color: string }[];
@@ -181,6 +181,7 @@ function SortableTaskCard({ task, index, allCategories, projectMembers, onToggle
   onNameClick: (task: Task) => void;
   isAdmin: boolean;
   currentUserId: string | null;
+  isHighlighted?: boolean;
 }) {
   const {
     attributes,
@@ -210,8 +211,12 @@ function SortableTaskCard({ task, index, allCategories, projectMembers, onToggle
         transition={{ opacity: { duration: 0.35 }, y: { duration: 0.35 }, layout: { duration: 0.3 }, delay: index < 10 ? index * 0.08 : 0 }}
         whileHover={{ y: -2, boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
         id={`task-card-${task.id}`}
-        className={`bg-white border border-[#E2E8F0] rounded-xl px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#CBD5E1] transition-all duration-200`}
-        style={{ borderLeftWidth: "3px", borderLeftColor: borderColor }}
+        className={`bg-white border rounded-xl px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#CBD5E1] transition-all duration-200 ${
+          isHighlighted
+            ? "border-[#3B82F6] ring-2 ring-[#3B82F6]/30 bg-[#EFF6FF]"
+            : "border-[#E2E8F0]"
+        }`}
+        style={{ borderLeftWidth: "3px", borderLeftColor: isHighlighted ? "#2563EB" : borderColor }}
       >
         {/* Row 1: Drag Handle + Checkbox + Name + Badge */}
         <div className="flex items-start gap-2">
@@ -404,7 +409,7 @@ export default function Dashboard() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState("#3B82F6");
 
-  const [_highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
   const [showTerminated, setShowTerminated] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -481,21 +486,26 @@ export default function Dashboard() {
     }
   }, [clearAllData]);
 
-  // Hash navigation
+  // URL query param navigation: ?taskId=xxx -> highlight and scroll to task
   useEffect(() => {
-    const hash = window.location.hash;
-    const match = hash.match(/[?&]taskId=([^&]+)/);
-    if (match) {
-      const taskId = match[1];
+    const params = new URLSearchParams(window.location.search);
+    const taskId = params.get("taskId");
+    if (taskId) {
       setHighlightedTaskId(taskId);
-      setTimeout(() => {
+      // Wait for tasks to render, then scroll
+      const tryScroll = (attempts = 0) => {
         const el = document.getElementById(`task-card-${taskId}`);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 500);
-      const timeout = setTimeout(() => setHighlightedTaskId(null), 4000);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else if (attempts < 10) {
+          setTimeout(() => tryScroll(attempts + 1), 200);
+        }
+      };
+      setTimeout(() => tryScroll(), 300);
+      const timeout = setTimeout(() => setHighlightedTaskId(null), 5000);
       return () => clearTimeout(timeout);
     }
-  }, []);
+  }, [tasks]); // re-run when tasks load
 
   // Fetch all users for @mention suggestions and admin filter dropdown
   useEffect(() => {
@@ -939,11 +949,12 @@ export default function Dashboard() {
       {/* Hidden file input for import */}
       <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} />
 
-      <div className="max-w-[1280px] mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex gap-4 md:gap-6">
-        {/* Sidebar */}
+      {/* Full-height fixed layout: left panel + right scrollable task list */}
+      <div className="h-[calc(100dvh-64px)] overflow-hidden flex">
+        {/* Left Panel - fixed, scrollable internally */}
         <motion.aside
           initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4, delay: 0.1 }}
-          className="hidden lg:block w-[220px] xl:w-[240px] shrink-0 bg-white border-r border-[#E2E8F0] min-h-[calc(100dvh-64px-64px)] sticky top-16 p-4 xl:p-5"
+          className="hidden lg:flex flex-col w-[220px] xl:w-[240px] shrink-0 bg-white border-r border-[#E2E8F0] h-full overflow-y-auto p-4 xl:p-5"
         >
           <p className="text-xs text-[#94A3B8] uppercase tracking-widest mb-3 font-medium">筛选</p>
           <div className="flex flex-col gap-1">
@@ -997,13 +1008,15 @@ export default function Dashboard() {
           </button>
         </motion.aside>
 
-        {/* Main Content */}
-        <div className="flex-1 min-w-0">
+        {/* Main Content - flex column, fixed header + scrollable task list */}
+        <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
+          {/* Fixed top section: digest banner + stats + mobile filters + search bar */}
+          <div className="shrink-0 px-3 sm:px-4 md:px-6 pt-4 sm:pt-5 pb-0 bg-[#F8FAFC]">
           {/* Daily Digest Banner */}
           <AnimatePresence>
             {showDigest && (
               <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.4, delay: 0.5 }}
-                className="mb-6 flex items-center gap-3 px-5 py-4 bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl">
+                className="mb-4 flex items-center gap-3 px-5 py-4 bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl">
                 <motion.div animate={{ rotate: [0, 8, -8, 0] }} transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}>
                   <Bell className="w-[18px] h-[18px] text-[#3B82F6] shrink-0" />
                 </motion.div>
@@ -1019,7 +1032,7 @@ export default function Dashboard() {
           </AnimatePresence>
 
           {/* Stats Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-4">
             <StatsCard icon={Inbox} iconColor="#64748B" iconBg="#F1F5F9" value={stats.total} label="任务总数" delay={0.1} />
             <StatsCard icon={TrendingUp} iconColor="#3B82F6" iconBg="#EFF6FF" value={stats.inProgress} label="进行中" delay={0.2} />
             <StatsCard icon={Check} iconColor="#10B981" iconBg="#ECFDF5" value={stats.completed} label="已完成" delay={0.3} />
@@ -1027,7 +1040,7 @@ export default function Dashboard() {
           </div>
 
           {/* Mobile Filter Pills */}
-          <div className="lg:hidden flex gap-1.5 sm:gap-2 mb-3 sm:mb-4 overflow-x-auto pb-1 -mx-1 px-1">
+          <div className="lg:hidden flex gap-1.5 sm:gap-2 mb-3 sm:mb-3 overflow-x-auto pb-1 -mx-1 px-1">
             {[{ k: "all" as FilterType, l: "全部" }, { k: "in-progress" as FilterType, l: "进行中" }, { k: "completed" as FilterType, l: "已完成" }, { k: "overdue" as FilterType, l: "已逾期" }].map(({ k, l }) => (
               <button key={k} onClick={() => setFilter(k)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
@@ -1039,7 +1052,7 @@ export default function Dashboard() {
           </div>
 
           {/* Search & Sort Bar */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="flex items-center gap-2 sm:gap-3 mb-3">
             <div className="relative flex-1 md:max-w-[400px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8] pointer-events-none" />
               <Input value={search} onChange={(e) => setSearch(e.target.value)}
@@ -1115,8 +1128,10 @@ export default function Dashboard() {
               </AnimatePresence>
             </div>
           </motion.div>
+          </div>{/* end fixed top section */}
 
-          {/* Task List */}
+          {/* Scrollable Task List */}
+          <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 pb-6">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -1164,6 +1179,7 @@ export default function Dashboard() {
                           onNameClick={handleNameClick}
                           isAdmin={isAdmin}
                           currentUserId={currentUserId}
+                          isHighlighted={highlightedTaskId === task.id}
                         />
                       );
                     })
@@ -1247,8 +1263,9 @@ export default function Dashboard() {
               </div>
             </SortableContext>
           </DndContext>
-        </div>
-      </div>
+          </div>{/* end scrollable task list */}
+        </div>{/* end main content flex col */}
+      </div>{/* end full-height layout */}
 
       {/* Task Modal */}
       <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) setModalOpen(false); }}>
