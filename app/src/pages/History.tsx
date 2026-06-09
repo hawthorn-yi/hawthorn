@@ -322,7 +322,7 @@ export default function HistoryPage() {
                             <div className="flex items-center justify-between mt-1">
                               <div className="flex items-center gap-1.5 text-[#94A3B8]">
                                 <Pencil className="w-3 h-3" />
-                                <span className="text-[0.75rem]">系统更新</span>
+                                <span className="text-[0.75rem]">{entry.username || "系统更新"}</span>
                               </div>
                               <span className="font-mono text-[0.75rem] text-[#94A3B8]">{format(date, "yyyy-MM-dd HH:mm:ss")}</span>
                             </div>
@@ -383,7 +383,10 @@ export default function HistoryPage() {
                 </div>
               )}
               <div className="flex items-center justify-between pt-2">
-                <span className="font-mono text-[0.75rem] text-[#94A3B8]">{format(parseISO(detailEntry.timestamp), "yyyy-MM-dd HH:mm:ss")}</span>
+                <div className="flex items-center gap-1.5 text-[#94A3B8]">
+                  <Pencil className="w-3 h-3" />
+                  <span className="text-[0.75rem]">{detailEntry.username || "系统更新"}</span>
+                </div>
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[0.75rem] font-medium"
                   style={{ backgroundColor: statusBgColors[detailEntry.task.status], color: statusTextColors[detailEntry.task.status] }}>
                   {statusLabels[detailEntry.task.status]}
