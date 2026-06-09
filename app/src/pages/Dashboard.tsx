@@ -124,13 +124,13 @@ function StatsCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
       whileHover={{ y: -2, boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
-      className="bg-white border border-[#E2E8F0] rounded-xl p-5 cursor-default transition-shadow duration-200"
+      className="bg-white border border-[#E2E8F0] rounded-xl p-3 sm:p-5 cursor-default transition-shadow duration-200"
     >
-      <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style={{ backgroundColor: iconBg }}>
-        <Icon className="w-5 h-5" style={{ color: iconColor }} />
+      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center mb-1.5 sm:mb-3" style={{ backgroundColor: iconBg }}>
+        <Icon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: iconColor }} />
       </div>
-      <p className="text-[1.875rem] font-bold text-[#1E293B] leading-tight tabular-nums">{value}</p>
-      <p className="text-xs text-[#94A3B8] mt-0.5">{label}</p>
+      <p className="text-xl sm:text-[1.875rem] font-bold text-[#1E293B] leading-tight tabular-nums">{value}</p>
+      <p className="text-[0.625rem] sm:text-xs text-[#94A3B8] mt-0.5">{label}</p>
     </motion.div>
   );
 }
@@ -1017,28 +1017,28 @@ export default function Dashboard() {
         {/* Main Content - flex column, fixed header + scrollable task list */}
         <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
           {/* Fixed top section: digest banner + stats + mobile filters + search bar */}
-          <div className="shrink-0 px-3 sm:px-4 md:px-6 pt-4 sm:pt-5 pb-0 bg-[#F8FAFC]">
+          <div className="shrink-0 px-2 sm:px-4 md:px-6 pt-2 sm:pt-5 pb-0 bg-[#F8FAFC]">
           {/* Daily Digest Banner */}
           <AnimatePresence>
             {showDigest && (
               <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.4, delay: 0.5 }}
-                className="mb-4 flex items-center gap-3 px-5 py-4 bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl">
+                className="mb-2 sm:mb-4 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-4 bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl">
                 <motion.div animate={{ rotate: [0, 8, -8, 0] }} transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}>
-                  <Bell className="w-[18px] h-[18px] text-[#3B82F6] shrink-0" />
+                  <Bell className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-[#3B82F6] shrink-0" />
                 </motion.div>
-                <p className="text-sm text-[#1D4ED8] flex-1">
+                <p className="text-xs sm:text-sm text-[#1D4ED8] flex-1">
                   今日任务摘要 —{" "}
                   <span className="font-semibold text-[#2563EB]">{digestCounts.dueToday} 个任务</span> 今日到期，
                   <span className="font-semibold text-[#2563EB]">{digestCounts.overdue} 个已逾期</span>
                 </p>
-                <button onClick={() => setFilter("overdue")} className="text-sm font-medium text-[#3B82F6] hover:underline cursor-pointer shrink-0">查看详情</button>
-                <button onClick={() => setDigestDismissed(true)} className="p-1 cursor-pointer shrink-0"><X className="w-4 h-4 text-[#3B82F6] hover:text-[#2563EB]" /></button>
+                <button onClick={() => setFilter("overdue")} className="text-xs sm:text-sm font-medium text-[#3B82F6] hover:underline cursor-pointer shrink-0">查看详情</button>
+                <button onClick={() => setDigestDismissed(true)} className="p-1 cursor-pointer shrink-0"><X className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3B82F6] hover:text-[#2563EB]" /></button>
               </motion.div>
             )}
           </AnimatePresence>
 
           {/* Stats Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-4">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-4 mb-2 sm:mb-4">
             <StatsCard icon={Inbox} iconColor="#64748B" iconBg="#F1F5F9" value={stats.total} label="任务总数" delay={0.1} />
             <StatsCard icon={TrendingUp} iconColor="#3B82F6" iconBg="#EFF6FF" value={stats.inProgress} label="进行中" delay={0.2} />
             <StatsCard icon={Check} iconColor="#10B981" iconBg="#ECFDF5" value={stats.completed} label="已完成" delay={0.3} />
@@ -1046,10 +1046,10 @@ export default function Dashboard() {
           </div>
 
           {/* Mobile Filter Pills */}
-          <div className="lg:hidden flex gap-1.5 sm:gap-2 mb-3 sm:mb-3 overflow-x-auto pb-1 -mx-1 px-1">
+          <div className="lg:hidden flex gap-1 sm:gap-2 mb-2 sm:mb-3 overflow-x-auto pb-1 -mx-1 px-1">
             {[{ k: "all" as FilterType, l: "全部" }, { k: "in-progress" as FilterType, l: "进行中" }, { k: "completed" as FilterType, l: "已完成" }, { k: "overdue" as FilterType, l: "已逾期" }].map(({ k, l }) => (
               <button key={k} onClick={() => setFilter(k)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[0.6875rem] sm:text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
                   filter === k ? "bg-[#EFF6FF] text-[#2563EB]" : "bg-white text-[#64748B] border border-[#E2E8F0]"
                 }`}>
                 {l} <span className="tabular-nums">({filterCounts[k]})</span>
@@ -1058,16 +1058,16 @@ export default function Dashboard() {
           </div>
 
           {/* Search & Sort Bar */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="flex items-center gap-2 sm:gap-3 mb-3 flex-wrap">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="flex items-center gap-1.5 sm:gap-3 mb-2 sm:mb-3 flex-wrap">
             <div className="relative flex-1 md:max-w-[400px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8] pointer-events-none" />
+              <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#94A3B8] pointer-events-none" />
               <Input value={search} onChange={(e) => setSearch(e.target.value)}
                 placeholder="搜索任务名称..."
-                className="h-10 pl-10 pr-4 rounded-lg bg-[#F1F5F9] border-0 text-sm text-[#64748B] placeholder:text-[#94A3B8] focus:bg-white focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] transition-all" />
+                className="h-8 sm:h-10 pl-9 sm:pl-10 pr-4 rounded-lg bg-[#F1F5F9] border-0 text-xs sm:text-sm text-[#64748B] placeholder:text-[#94A3B8] focus:bg-white focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] transition-all" />
             </div>
             {/* Category Filter */}
             <Select value={categoryFilter || "__all__"} onValueChange={(v) => setCategoryFilter(v === "__all__" ? "" : v)}>
-              <SelectTrigger className="h-10 px-3 rounded-lg bg-[#F1F5F9] border-0 text-sm text-[#64748B] focus:bg-white focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] transition-all min-w-[130px]">
+              <SelectTrigger className="h-8 sm:h-10 px-2 sm:px-3 rounded-lg bg-[#F1F5F9] border-0 text-xs sm:text-sm text-[#64748B] focus:bg-white focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] transition-all min-w-[100px] sm:min-w-[130px]">
                 <SelectValue placeholder="按分类筛选..." />
               </SelectTrigger>
               <SelectContent>
@@ -1086,7 +1086,7 @@ export default function Dashboard() {
             {isAdmin && (
               <div className="relative">
                 <Select value={userFilterId || "__all__"} onValueChange={(v) => setUserFilterId(v === "__all__" ? "" : v)}>
-                  <SelectTrigger className="h-10 px-3 rounded-lg bg-[#F1F5F9] border-0 text-sm text-[#64748B] focus:bg-white focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] transition-all min-w-[140px]">
+                  <SelectTrigger className="h-8 sm:h-10 px-2 sm:px-3 rounded-lg bg-[#F1F5F9] border-0 text-xs sm:text-sm text-[#64748B] focus:bg-white focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] transition-all min-w-[100px] sm:min-w-[140px]">
                     <SelectValue placeholder="按用户筛选..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -1137,7 +1137,7 @@ export default function Dashboard() {
           </div>{/* end fixed top section */}
 
           {/* Scrollable Task List */}
-          <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 pb-6">
+          <div className="flex-1 overflow-y-auto px-2 sm:px-4 md:px-6 pb-4 sm:pb-6">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}

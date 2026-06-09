@@ -103,7 +103,7 @@ export default function Layout({
         style={{ marginLeft: isMobile ? 0 : (sidebarCollapsed ? 72 : 240) }}
       >
         {/* Top Bar */}
-        <header className="h-14 md:h-16 shrink-0 z-30 bg-white/90 backdrop-blur-lg border-b border-[#E2E8F0] flex items-center justify-between px-3 sm:px-4 md:px-6">
+        <header className="h-12 md:h-16 shrink-0 z-30 bg-white/90 backdrop-blur-lg border-b border-[#E2E8F0] flex items-center justify-between px-2 sm:px-4 md:px-6">
           <div className="flex items-center gap-2 md:gap-3">
             {/* Mobile menu button */}
             <button
