@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Inbox, TrendingUp, Check, AlertTriangle, Search, Bell, X,
@@ -350,6 +350,7 @@ function SortableTaskCard({ task, index, allCategories, projectMembers, onToggle
 export default function Dashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     tasks, addTask, updateTask, deleteTask, toggleComplete,
     terminateTask, restoreTask, deleteHistoryEntry, allCategories, addCustomCategory,
@@ -487,9 +488,9 @@ export default function Dashboard() {
   }, [clearAllData]);
 
   // URL query param navigation: ?taskId=xxx -> highlight and scroll to task
+  // Uses useSearchParams (works with HashRouter where window.location.search is empty)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const taskId = params.get("taskId");
+    const taskId = searchParams.get("taskId");
     if (taskId) {
       setHighlightedTaskId(taskId);
       // Wait for tasks to render, then scroll
@@ -503,9 +504,14 @@ export default function Dashboard() {
       };
       setTimeout(() => tryScroll(), 300);
       const timeout = setTimeout(() => setHighlightedTaskId(null), 5000);
-      return () => clearTimeout(timeout);
+      // Clean up the taskId param so refreshing doesn't re-trigger
+      const cleanup = setTimeout(() => {
+        searchParams.delete("taskId");
+        setSearchParams(searchParams, { replace: true });
+      }, 6000);
+      return () => { clearTimeout(timeout); clearTimeout(cleanup); };
     }
-  }, [tasks]); // re-run when tasks load
+  }, [searchParams, tasks]);
 
   // Fetch all users for @mention suggestions and admin filter dropdown
   useEffect(() => {
@@ -950,7 +956,7 @@ export default function Dashboard() {
       <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} />
 
       {/* Full-height fixed layout: left panel + right scrollable task list */}
-      <div className="h-[calc(100dvh-64px)] overflow-hidden flex">
+      <div className="h-full overflow-hidden flex">
         {/* Left Panel - fixed, scrollable internally */}
         <motion.aside
           initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4, delay: 0.1 }}
@@ -1052,7 +1058,7 @@ export default function Dashboard() {
           </div>
 
           {/* Search & Sort Bar */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="flex items-center gap-2 sm:gap-3 mb-3">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="flex items-center gap-2 sm:gap-3 mb-3 flex-wrap">
             <div className="relative flex-1 md:max-w-[400px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8] pointer-events-none" />
               <Input value={search} onChange={(e) => setSearch(e.target.value)}

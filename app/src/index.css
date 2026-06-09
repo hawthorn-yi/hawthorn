@@ -77,6 +77,11 @@
 
   html {
     scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+
+  body {
+    overflow-x: hidden;
   }
 
   /* Mobile tap highlight removal */
@@ -101,5 +106,11 @@
   .font-mono {
     font-family: var(--font-mono-num);
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Prevent horizontal overflow at root level */
+  #root {
+    overflow-x: hidden;
+    max-width: 100vw;
   }
 }

@@ -84,7 +84,7 @@ export default function Layout({
   };
 
   return (
-    <div className="min-h-[100dvh] flex bg-[#F8FAFC]">
+    <div className="h-dvh flex overflow-hidden bg-[#F8FAFC]">
       {/* Sidebar */}
       <Sidebar
         collapsed={sidebarCollapsed}
@@ -99,11 +99,11 @@ export default function Layout({
 
       {/* Main Content Area */}
       <div
-        className="flex-1 flex flex-col min-h-[100dvh] transition-[margin] duration-250 w-full"
+        className="flex-1 flex flex-col h-dvh transition-[margin] duration-250 min-w-0 overflow-hidden"
         style={{ marginLeft: isMobile ? 0 : (sidebarCollapsed ? 72 : 240) }}
       >
         {/* Top Bar */}
-        <header className="h-14 md:h-16 sticky top-0 z-30 bg-white/90 backdrop-blur-lg border-b border-[#E2E8F0] flex items-center justify-between px-3 sm:px-4 md:px-6">
+        <header className="h-14 md:h-16 shrink-0 z-30 bg-white/90 backdrop-blur-lg border-b border-[#E2E8F0] flex items-center justify-between px-3 sm:px-4 md:px-6">
           <div className="flex items-center gap-2 md:gap-3">
             {/* Mobile menu button */}
             <button
@@ -337,8 +337,9 @@ export default function Layout({
           {children}
         </main>
 
-        {/* Footer */}
-        <Footer sidebarCollapsed={sidebarCollapsed} />
+        <div className="shrink-0">
+          <Footer sidebarCollapsed={sidebarCollapsed} />
+        </div>
       </div>
     </div>
   );
