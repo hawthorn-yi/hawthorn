@@ -333,7 +333,7 @@ export default function Layout({
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0 overflow-hidden">
+        <main className="flex-1 min-w-0 overflow-y-auto">
           {children}
         </main>
 

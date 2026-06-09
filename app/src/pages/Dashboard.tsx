@@ -397,7 +397,7 @@ export default function Dashboard() {
   // @mention suggestion dropdown
   const [mentionSuggestions, setMentionSuggestions] = useState<Array<{ id: string; username: string; role: string }>>([]);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
-  const [mentionFilter, setMentionFilter] = useState("");
+  const [, setMentionFilter] = useState("");
   const mentionTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Replies for history display in edit dialog

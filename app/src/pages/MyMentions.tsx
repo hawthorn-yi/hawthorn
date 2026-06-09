@@ -26,7 +26,7 @@ function formatTime(iso: string): string {
 
 export default function MyMentions() {
   const navigate = useNavigate();
-  const { groupedMentions, mentions, loading } = useMyMentions();
+  const { groupedMentions, loading } = useMyMentions();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [mentionedUserFilter, setMentionedUserFilter] = useState<string>("");
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
@@ -54,7 +54,6 @@ export default function MyMentions() {
 
   const repliedCount = filteredGroups.filter((g) => g.has_reply).length;
   const unrepliedCount = filteredGroups.filter((g) => !g.has_reply).length;
-  const selectedUserLabel = mentionedUserFilter || "全部";
 
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
