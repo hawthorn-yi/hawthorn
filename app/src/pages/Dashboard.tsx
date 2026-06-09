@@ -515,13 +515,22 @@ export default function Dashboard() {
   }, [filter]);
 
   // Stats
+  // Compute stats based on current filters (category + user)
   const stats = useMemo(() => {
-    const total = tasks.length;
-    const inProgress = tasks.filter((t) => t.status === "active").length;
-    const completed = tasks.filter((t) => t.status === "completed").length;
-    const overdueCount = tasks.filter((t) => t.status === "overdue").length;
+    let filtered = [...tasks];
+    if (categoryFilter) filtered = filtered.filter((t) => t.category === categoryFilter);
+    if (userFilterId) {
+      filtered = filtered.filter((t) => {
+        const memberUserIds = projectMembers.filter((m) => m.task_id === t.id).map((m) => m.user_id);
+        return memberUserIds.includes(userFilterId);
+      });
+    }
+    const total = filtered.length;
+    const inProgress = filtered.filter((t) => t.status === "active").length;
+    const completed = filtered.filter((t) => t.status === "completed").length;
+    const overdueCount = filtered.filter((t) => t.status === "overdue").length;
     return { total, inProgress, completed, overdue: overdueCount };
-  }, [tasks]);
+  }, [tasks, categoryFilter, userFilterId, projectMembers]);
 
   const digestCounts = useMemo(() => {
     const todayStr = getToday();
@@ -874,12 +883,22 @@ export default function Dashboard() {
 
   const showDigest = digest.enabled && !digestDismissed && (digestCounts.dueToday > 0 || digestCounts.overdue > 0);
 
-  const filterCounts = useMemo(() => ({
-    all: tasks.length,
-    "in-progress": tasks.filter((t) => t.status === "active").length,
-    completed: tasks.filter((t) => t.status === "completed").length,
-    overdue: tasks.filter((t) => t.status === "overdue").length,
-  }), [tasks]);
+  const filterCounts = useMemo(() => {
+    let filtered = [...tasks];
+    if (categoryFilter) filtered = filtered.filter((t) => t.category === categoryFilter);
+    if (userFilterId) {
+      filtered = filtered.filter((t) => {
+        const memberUserIds = projectMembers.filter((m) => m.task_id === t.id).map((m) => m.user_id);
+        return memberUserIds.includes(userFilterId);
+      });
+    }
+    return {
+      all: filtered.length,
+      "in-progress": filtered.filter((t) => t.status === "active").length,
+      completed: filtered.filter((t) => t.status === "completed").length,
+      overdue: filtered.filter((t) => t.status === "overdue").length,
+    };
+  }, [tasks, categoryFilter, userFilterId, projectMembers]);
 
   if (loading) {
     return (
