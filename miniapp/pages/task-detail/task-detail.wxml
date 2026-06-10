@@ -1,0 +1,168 @@
+<view class="page-container">
+  <!-- 加载中 -->
+  <view class="flex-center p-lg" wx:if="{{loading}}">
+    <text class="text-muted">加载中...</text>
+  </view>
+
+  <block wx:if="{{!loading && task}}">
+    <!-- 任务头部信息 -->
+    <view class="detail-header">
+      <view class="flex-row gap-sm mb-sm">
+        <view class="badge {{statusClass}}" style="{{statusStyle}}">{{statusText}}</view>
+        <view class="badge" style="background:{{categoryColor}}22;color:{{categoryColor}}">{{categoryName}}</view>
+      </view>
+      <text class="detail-title">{{task.name}}</text>
+    </view>
+
+    <!-- 信息卡片 -->
+    <view class="info-card card">
+      <view class="info-row">
+        <text class="info-label">创建日期</text>
+        <text class="info-value">{{task.createdDate}}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">截止日期</text>
+        <text class="info-value {{task.status === 'overdue' ? 'text-danger' : ''}}">{{task.deadline || '未设置'}}</text>
+      </view>
+      <view class="info-row" wx:if="{{task.assignee_username}}">
+        <text class="info-label">指派人</text>
+        <text class="info-value">👤 {{task.assignee_username}}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">进度</text>
+        <text class="info-value font-bold" style="color:{{progressColor}}">{{task.progress}}%</text>
+      </view>
+      <slider value="{{task.progress}}" min="0" max="100" activeColor="{{progressColor}}" bindchange="onProgressChange" show-value block-size="20" />
+    </view>
+
+    <!-- Tab 切换 -->
+    <view class="tab-bar">
+      <view class="tab-item {{activeTab === 'history' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="history">
+        更新记录
+      </view>
+      <view class="tab-item {{activeTab === 'attachments' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="attachments">
+        附件 ({{task.attachments.length}})
+      </view>
+      <view class="tab-item {{activeTab === 'members' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="members">
+        成员
+      </view>
+    </view>
+
+    <!-- 更新记录 -->
+    <view class="tab-content" wx:if="{{activeTab === 'history'}}">
+      <!-- 添加更新 -->
+      <view class="update-input card mb-md">
+        <textarea placeholder="添加更新记录（支持 @提及）" value="{{updateNote}}" bindinput="onUpdateNoteInput" auto-height maxlength="500" />
+        <view class="flex-between mt-sm">
+          <slider value="{{updateProgress}}" min="0" max="100" activeColor="#3B82F6" bindchange="onUpdateProgressChange" show-value block-size="16" style="flex:1" />
+          <view class="send-btn" bindtap="onAddUpdate">发送</view>
+        </view>
+      </view>
+
+      <!-- 历史列表 -->
+      <view class="history-item card mb-sm" wx:for="{{task.history}}" wx:key="id">
+        <view class="flex-between mb-xs">
+          <text class="font-sm font-bold">{{item.username || '未知'}}</text>
+          <text class="text-muted font-xs">{{item.relativeTime}}</text>
+        </view>
+        <text class="font-md">{{item.note}}</text>
+        <view class="flex-row gap-xs mt-xs">
+          <view class="badge badge-primary font-xs" wx:if="{{item.progress > 0}}">{{item.progress}}%</view>
+        </view>
+      </view>
+
+      <empty-state wx:if="{{task.history.length === 0}}" message="暂无更新记录" icon="📝"></empty-state>
+    </view>
+
+    <!-- 附件 -->
+    <view class="tab-content" wx:if="{{activeTab === 'attachments'}}">
+      <view class="add-attachment-btn card mb-md flex-center" bindtap="onAddAttachment">
+        <text class="text-primary">+ 上传附件</text>
+      </view>
+      <view class="attachment-item card mb-sm flex-between" wx:for="{{task.attachments}}" wx:key="id">
+        <view class="flex-row flex-1" bindtap="onPreviewAttachment" data-index="{{index}}">
+          <text class="att-icon">📎</text>
+          <view class="flex-col">
+            <text class="font-md truncate">{{item.name}}</text>
+            <text class="text-muted font-xs">{{item.sizeText}}</text>
+          </view>
+        </view>
+        <view class="remove-att" catchtap="onRemoveAttachment" data-id="{{item.id}}" data-name="{{item.name}}">
+          <text class="text-danger font-sm">删除</text>
+        </view>
+      </view>
+      <empty-state wx:if="{{task.attachments.length === 0}}" message="暂无附件" icon="📁"></empty-state>
+    </view>
+
+    <!-- 成员 -->
+    <view class="tab-content" wx:if="{{activeTab === 'members'}}">
+      <view class="member-item-detail card mb-sm flex-row" wx:for="{{members}}" wx:key="id">
+        <view class="avatar-circle" style="background:{{item.role === 'owner' ? '#3B82F6' : '#64748B'}}">
+          <text class="avatar-text">{{item.username[0]}}</text>
+        </view>
+        <view class="flex-col flex-1">
+          <text class="font-md font-semibold">{{item.username}}</text>
+          <text class="text-muted font-xs">{{item.role === 'owner' ? '负责人' : '成员'}}</text>
+        </view>
+        <view catchtap="onRemoveMember" data-id="{{item.id}}" wx:if="{{item.role !== 'owner'}}">
+          <text class="text-danger font-sm">移除</text>
+        </view>
+      </view>
+      <view class="add-member-btn card flex-center" bindtap="onAddMember">
+        <text class="text-primary">+ 添加成员</text>
+      </view>
+      <empty-state wx:if="{{members.length === 0}}" message="暂无成员" icon="👥"></empty-state>
+    </view>
+  </block>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-bar safe-bottom" wx:if="{{!loading && task}}">
+    <view class="bottom-btn" bindtap="onEditTask">✏️ 编辑</view>
+    <view class="bottom-btn" bindtap="onToggleStatus" wx:if="{{task.status !== 'terminated'}}">
+      {{task.progress === 100 ? '🔄 重新打开' : '✅ 完成'}}
+    </view>
+    <view class="bottom-btn" bindtap="onTerminate" wx:if="{{task.status !== 'terminated'}}">⏹️ 终止</view>
+    <view class="bottom-btn" bindtap="onRestore" wx:if="{{task.status === 'terminated'}}">🔄 恢复</view>
+    <view class="bottom-btn text-danger" bindtap="onDelete">🗑️ 删除</view>
+  </view>
+
+  <!-- 编辑弹窗 -->
+  <view class="overlay" bindtap="hideEditDialog" wx:if="{{showEdit}}"></view>
+  <view class="bottom-sheet {{showEdit ? 'sheet-show' : ''}}" wx:if="{{showEdit}}">
+    <view class="sheet-header flex-between">
+      <text class="font-lg font-bold">编辑任务</text>
+      <view bindtap="hideEditDialog"><text class="text-muted font-xl">✕</text></view>
+    </view>
+    <scroll-view scroll-y class="sheet-body">
+      <view class="form-item">
+        <text class="form-label">任务名称</text>
+        <input class="form-input-box" value="{{editData.name}}" bindinput="onEditName" />
+      </view>
+      <view class="form-item">
+        <text class="form-label">分类</text>
+        <category-picker categories="{{categories}}" selected-id="{{editData.category}}" bind:select="onEditCategory"></category-picker>
+      </view>
+      <view class="form-item">
+        <text class="form-label">截止日期</text>
+        <picker mode="date" value="{{editData.deadline}}" bindchange="onEditDeadline">
+          <view class="form-input-box flex-between">
+            <text>{{editData.deadline || '选择日期'}}</text>
+            <text class="text-muted">📅</text>
+          </view>
+        </picker>
+      </view>
+      <view class="form-item">
+        <text class="form-label">指派人</text>
+        <picker mode="selector" range="{{allUsers}}" range-key="username" bindchange="onEditAssignee">
+          <view class="form-input-box flex-between">
+            <text>{{editData.assignee_username || '选择指派人'}}</text>
+            <text class="text-muted">👤</text>
+          </view>
+        </picker>
+      </view>
+    </scroll-view>
+    <view class="sheet-footer safe-bottom">
+      <button class="submit-btn" bindtap="onSaveEdit" loading="{{saving}}">保存修改</button>
+    </view>
+  </view>
+</view>

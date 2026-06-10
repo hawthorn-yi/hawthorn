@@ -1,0 +1,42 @@
+<view class="task-card card-border hover-active" bindtap="onTap" bindlongpress="onLongPress">
+  <!-- 顶部行：状态徽章 + 操作 -->
+  <view class="flex-between mb-sm">
+    <view class="flex-row gap-xs">
+      <view class="badge {{statusClass}}" style="{{statusColor ? 'background-color:' + statusColor + '22;color:' + statusColor : ''}}">
+        {{statusText}}
+      </view>
+      <view class="badge" style="background-color:{{categoryColor}}22;color:{{categoryColor}}">{{categoryName}}</view>
+    </view>
+    <view class="flex-row gap-xs" wx:if="{{showActions}}">
+      <view class="action-icon" catchtap="onToggleComplete">
+        <text>{{completed ? '🔄' : '✅'}}</text>
+      </view>
+      <view class="action-icon" catchtap="onMore">
+        <text>⋯</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 任务名称 -->
+  <view class="task-name {{completed ? 'task-name-done' : ''}}">{{name}}</view>
+
+  <!-- 进度条 -->
+  <view class="progress-section mt-sm">
+    <view class="flex-between mb-xs">
+      <text class="text-muted font-xs">进度</text>
+      <text class="font-xs font-bold" style="color:{{progressColor}}">{{progress}}%</text>
+    </view>
+    <view class="progress-track">
+      <view class="progress-fill" style="width:{{progress}}%;background-color:{{progressColor}}"></view>
+    </view>
+  </view>
+
+  <!-- 底部信息 -->
+  <view class="flex-between mt-sm">
+    <view class="flex-row gap-sm">
+      <text class="text-muted font-xs" wx:if="{{deadline}}">📅 {{deadline}}</text>
+      <text class="text-muted font-xs" wx:if="{{assigneeUsername}}">👤 {{assigneeUsername}}</text>
+    </view>
+    <text class="text-muted font-xs">{{historyCount}}条记录</text>
+  </view>
+</view>

@@ -1,0 +1,51 @@
+.detail-header { padding: 32rpx; background: #fff; }
+.detail-title { display: block; font-size: var(--font-xl); font-weight: 700; color: var(--color-text); line-height: 1.4; }
+.info-card { margin: 16rpx 24rpx; }
+.info-row { display: flex; justify-content: space-between; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid var(--color-border-light); }
+.info-label { font-size: var(--font-sm); color: var(--color-text-secondary); }
+.info-value { font-size: var(--font-md); }
+
+/* Tabs */
+.tab-bar { display: flex; background: #fff; border-bottom: 1rpx solid var(--color-border-light); padding: 0 24rpx; }
+.tab-item { padding: 24rpx 32rpx; font-size: var(--font-md); color: var(--color-text-secondary); position: relative; }
+.tab-active { color: var(--color-primary); font-weight: 600; }
+.tab-active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 48rpx; height: 4rpx; background: var(--color-primary); border-radius: 2rpx; }
+.tab-content { padding: 24rpx; padding-bottom: 180rpx; }
+
+/* 更新输入 */
+.update-input textarea { min-height: 80rpx; font-size: var(--font-md); }
+.send-btn { background: var(--color-primary); color: #fff; padding: 8rpx 32rpx; border-radius: 999rpx; font-size: var(--font-sm); }
+
+/* 历史记录 */
+.history-item { padding: 20rpx; }
+
+/* 附件 */
+.add-attachment-btn { padding: 24rpx; border: 2rpx dashed var(--color-border); }
+.att-icon { margin-right: 12rpx; font-size: 32rpx; }
+.attachment-item { padding: 20rpx; }
+
+/* 成员 */
+.member-item-detail { padding: 20rpx; }
+.avatar-circle { width: 64rpx; height: 64rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 16rpx; }
+.avatar-text { color: #fff; font-size: 24rpx; font-weight: 600; }
+.add-member-btn { padding: 24rpx; border: 2rpx dashed var(--color-border); }
+
+/* 底部操作栏 */
+.bottom-bar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  display: flex; background: #fff; padding: 16rpx 24rpx;
+  box-shadow: 0 -4rpx 12rpx rgba(0,0,0,0.05);
+  z-index: 50;
+}
+.bottom-btn { flex: 1; text-align: center; padding: 20rpx; font-size: var(--font-sm); }
+
+/* 底部弹窗（复用 dashboard 样式） */
+.bottom-sheet { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-radius: 32rpx 32rpx 0 0; z-index: 1000; transform: translateY(100%); transition: transform 0.3s ease; max-height: 85vh; display: flex; flex-direction: column; }
+.sheet-show { transform: translateY(0); }
+.sheet-header { padding: 32rpx 32rpx 16rpx; border-bottom: 1rpx solid var(--color-border-light); }
+.sheet-body { flex: 1; overflow-y: auto; padding: 24rpx 32rpx; max-height: 55vh; }
+.sheet-footer { padding: 16rpx 32rpx 32rpx; border-top: 1rpx solid var(--color-border-light); }
+.form-item { margin-bottom: 28rpx; }
+.form-label { display: block; font-size: var(--font-sm); font-weight: 500; margin-bottom: 12rpx; }
+.form-input-box { display: flex; align-items: center; background: var(--color-bg); border: 2rpx solid var(--color-border); border-radius: var(--radius-md); padding: 0 24rpx; height: 88rpx; font-size: var(--font-md); }
+.submit-btn { width: 100%; height: 88rpx; background: linear-gradient(135deg, #3B82F6, #2563EB); color: #fff; font-size: var(--font-lg); font-weight: 600; border-radius: var(--radius-md); border: none; }

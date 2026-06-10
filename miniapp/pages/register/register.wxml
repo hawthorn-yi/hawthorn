@@ -1,0 +1,68 @@
+<view class="page-container register-page">
+  <!-- 顶部 -->
+  <view class="register-header">
+    <text class="title">创建账号</text>
+    <text class="subtitle">注册后即可使用项目进度管理</text>
+  </view>
+
+  <!-- 注册表单 -->
+  <view class="register-form">
+    <view class="form-item">
+      <text class="form-label">用户名</text>
+      <view class="input-wrapper">
+        <input
+          class="form-input"
+          placeholder="至少3个字符"
+          value="{{username}}"
+          bindinput="onUsernameInput"
+          maxlength="20"
+        />
+      </view>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">密码</text>
+      <view class="input-wrapper">
+        <input
+          class="form-input"
+          placeholder="至少4个字符"
+          password="{{!showPassword}}"
+          value="{{password}}"
+          bindinput="onPasswordInput"
+          maxlength="50"
+        />
+        <view class="toggle-password" bindtap="togglePassword">
+          <text class="toggle-icon">{{showPassword ? '🙈' : '👁️'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">确认密码</text>
+      <view class="input-wrapper">
+        <input
+          class="form-input"
+          placeholder="再次输入密码"
+          password="{{!showPassword}}"
+          value="{{confirmPassword}}"
+          bindinput="onConfirmPasswordInput"
+          maxlength="50"
+        />
+      </view>
+    </view>
+
+    <button
+      class="register-btn"
+      bindtap="onRegister"
+      loading="{{loading}}"
+      disabled="{{loading}}"
+    >
+      注 册
+    </button>
+
+    <view class="login-link" bindtap="goLogin">
+      <text class="text-secondary">已有账号？</text>
+      <text class="text-primary font-semibold">返回登录</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,5 @@
+.day-header { display: flex; align-items: baseline; gap: 12rpx; padding: 24rpx 24rpx 8rpx; }
+.day-date { font-size: var(--font-lg); color: var(--color-text); }
+.day-weekday { font-size: var(--font-sm); }
+.entry-card { padding: 20rpx; margin: 8rpx 24rpx; }
+.entry-note { font-size: var(--font-md); color: var(--color-text); line-height: 1.5; }

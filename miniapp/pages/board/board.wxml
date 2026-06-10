@@ -1,0 +1,39 @@
+<view class="page-container">
+  <view class="flex-center p-lg" wx:if="{{loading}}">
+    <text class="text-muted">加载中...</text>
+  </view>
+
+  <view class="board-content" wx:if="{{!loading}}">
+    <view class="category-group" wx:for="{{groups}}" wx:key="id">
+      <view class="group-header" bindtap="toggleGroup" data-id="{{item.id}}">
+        <view class="color-bar" style="background-color:{{item.color}}"></view>
+        <view class="group-info flex-1">
+          <text class="group-name font-bold">{{item.name}}</text>
+          <text class="text-muted font-xs ml-xs">{{item.tasks.length}}个任务</text>
+        </view>
+        <text class="toggle-icon">{{item.collapsed ? '▶' : '▼'}}</text>
+      </view>
+      <view class="group-tasks" wx:if="{{!item.collapsed}}">
+        <view class="board-task card mb-sm" wx:for="{{item.tasks}}" wx:key="id" bindtap="onTaskTap" data-id="{{item.id}}">
+          <view class="flex-row gap-xs mb-xs">
+            <view class="badge {{item.statusClass}}" style="{{item.statusStyle}}">{{item.statusText}}</view>
+          </view>
+          <text class="task-name">{{item.name}}</text>
+          <view class="flex-between mt-xs">
+            <view class="progress-mini">
+              <view class="progress-mini-fill" style="width:{{item.progress}}%;background-color:{{item.progressColor}}"></view>
+            </view>
+            <text class="font-xs" style="color:{{item.progressColor}}">{{item.progress}}%</text>
+          </view>
+          <view class="flex-row gap-sm mt-xs">
+            <text class="text-muted font-xs" wx:if="{{item.deadline}}">📅 {{item.deadline}}</text>
+            <text class="text-muted font-xs" wx:if="{{item.assignee_username}}">👤 {{item.assignee_username}}</text>
+          </view>
+        </view>
+        <view class="empty-group text-muted font-sm" wx:if="{{item.tasks.length === 0}}">暂无任务</view>
+      </view>
+    </view>
+  </view>
+
+  <empty-state wx:if="{{!loading && groups.length === 0}}" message="暂无数据" icon="📋"></empty-state>
+</view>

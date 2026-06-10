@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "任务面板",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "task-card": "/components/task-card/task-card",
+    "search-bar": "/components/search-bar/search-bar",
+    "category-picker": "/components/category-picker/category-picker",
+    "empty-state": "/components/empty-state/empty-state",
+    "confirm-dialog": "/components/confirm-dialog/confirm-dialog"
+  }
+}

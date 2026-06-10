@@ -1,0 +1,14 @@
+.overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); z-index: 999; }
+.dialog {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 560rpx; background: #fff; border-radius: var(--radius-xl); padding: 48rpx;
+  z-index: 1000; text-align: center;
+}
+.dialog-title { display: block; font-size: var(--font-lg); margin-bottom: 16rpx; }
+.dialog-message { display: block; font-size: var(--font-md); margin-bottom: 40rpx; line-height: 1.6; }
+.dialog-actions { display: flex; gap: 16rpx; }
+.dialog-btn {
+  flex: 1; height: 80rpx; display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-md); font-size: var(--font-md); font-weight: 500;
+}
+.dialog-btn-cancel { background: var(--color-border-light); color: var(--color-text-secondary); }

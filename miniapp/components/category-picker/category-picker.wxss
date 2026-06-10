@@ -1,0 +1,10 @@
+.category-list { display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 12rpx; }
+.category-item {
+  display: flex; align-items: center; padding: 12rpx 24rpx;
+  border-radius: var(--radius-md); border: 2rpx solid var(--color-border);
+  background: #fff;
+}
+.category-active { border-color: var(--color-primary); background: var(--color-primary-light); }
+.color-dot { width: 24rpx; height: 24rpx; border-radius: 50%; margin-right: 12rpx; }
+.category-name { font-size: var(--font-sm); }
+.check-mark { color: var(--color-primary); margin-left: 8rpx; font-weight: 700; }

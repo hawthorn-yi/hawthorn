@@ -1,0 +1,41 @@
+<view class="page-container">
+  <view class="flex-center p-lg" wx:if="{{loading}}"><text class="text-muted">加载中...</text></view>
+
+  <block wx:if="{{!loading}}">
+    <view class="stats-grid">
+      <view class="stat-card"><text class="stat-number">{{users.length}}</text><text class="stat-label">总用户</text></view>
+      <view class="stat-card"><text class="stat-number text-primary">{{adminCount}}</text><text class="stat-label">管理员</text></view>
+      <view class="stat-card"><text class="stat-number text-success">{{activeCount}}</text><text class="stat-label">已激活</text></view>
+    </view>
+
+    <view class="user-item card mb-sm" wx:for="{{users}}" wx:key="id">
+      <view class="flex-row">
+        <view class="avatar-circle" style="background:{{item.role === 'admin' ? '#3B82F6' : '#64748B'}}">
+          <text class="avatar-text">{{item.username[0]}}</text>
+        </view>
+        <view class="flex-col flex-1">
+          <view class="flex-row gap-sm">
+            <text class="font-bold">{{item.username}}</text>
+            <view class="badge {{item.role === 'admin' ? 'badge-primary' : ''}}">{{item.role === 'admin' ? '管理员' : '用户'}}</view>
+            <view class="badge {{item.is_approved ? 'badge-success' : 'badge-danger'}}">{{item.is_approved ? '已激活' : '未激活'}}</view>
+          </view>
+          <text class="text-muted font-xs mt-xs">注册: {{item.created_at}}</text>
+        </view>
+      </view>
+      <view class="user-actions flex-row gap-sm mt-sm">
+        <view class="action-btn-sm" bindtap="onToggleRole" data-id="{{item.id}}" data-role="{{item.role}}">
+          <text class="font-xs text-primary">{{item.role === 'admin' ? '设为用户' : '设为管理员'}}</text>
+        </view>
+        <view class="action-btn-sm" bindtap="onToggleApproval" data-id="{{item.id}}" data-approved="{{item.is_approved}}">
+          <text class="font-xs text-warning">{{item.is_approved ? '禁用' : '启用'}}</text>
+        </view>
+        <view class="action-btn-sm" bindtap="onResetPassword" data-id="{{item.id}}">
+          <text class="font-xs text-secondary">重置密码</text>
+        </view>
+        <view class="action-btn-sm" bindtap="onDeleteUser" data-id="{{item.id}}" data-name="{{item.username}}">
+          <text class="font-xs text-danger">删除</text>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

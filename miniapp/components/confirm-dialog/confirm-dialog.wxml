@@ -1,0 +1,9 @@
+<view class="overlay" bindtap="onCancel" wx:if="{{visible}}"></view>
+<view class="dialog" wx:if="{{visible}}">
+  <text class="dialog-title font-bold">{{title}}</text>
+  <text class="dialog-message text-secondary font-md">{{message}}</text>
+  <view class="dialog-actions">
+    <view class="dialog-btn dialog-btn-cancel" bindtap="onCancel">取消</view>
+    <view class="dialog-btn dialog-btn-confirm" style="background:{{confirmColor || '#3B82F6'}};color:#fff" bindtap="onConfirm">{{confirmText || '确认'}}</view>
+  </view>
+</view>

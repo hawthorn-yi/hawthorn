@@ -1,0 +1,1 @@
+{ "navigationBarTitleText": "附件清单", "usingComponents": { "search-bar": "/components/search-bar/search-bar", "empty-state": "/components/empty-state/empty-state" } }

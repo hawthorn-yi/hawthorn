@@ -1,0 +1,20 @@
+<view class="member-selector">
+  <text class="form-label">项目成员</text>
+  <view class="member-list">
+    <view class="member-item" wx:for="{{members}}" wx:key="user_id">
+      <view class="avatar-circle" style="background-color:{{item.color || '#3B82F6'}}">
+        <text class="avatar-text">{{item.username[0]}}</text>
+      </view>
+      <text class="member-name">{{item.username}}</text>
+      <text class="member-role text-muted font-xs">{{item.role === 'owner' ? '负责人' : '成员'}}</text>
+      <view class="remove-btn" catchtap="onRemove" data-id="{{item.id}}" wx:if="{{item.role !== 'owner'}}">
+        <text class="text-danger font-xs">移除</text>
+      </view>
+    </view>
+  </view>
+  <view class="add-member" bindtap="onShowPicker" wx:if="{{availableUsers.length > 0}}">
+    <text class="text-primary font-sm">+ 添加成员</text>
+  </view>
+  <picker mode="selector" range="{{availableUsers}}" range-key="username" bindchange="onPickMember" wx:if="{{showPicker}}">
+  </picker>
+</view>

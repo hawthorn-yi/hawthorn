@@ -1,0 +1,41 @@
+<view class="page-container">
+  <view class="flex-center p-lg" wx:if="{{loading}}"><text class="text-muted">加载中...</text></view>
+
+  <block wx:if="{{!loading}}">
+    <view class="flex-between p-md" wx:if="{{unreadCount > 0}}">
+      <text class="font-bold">@我的消息 ({{unreadCount}}未读)</text>
+      <view class="mark-all-btn" bindtap="onMarkAllRead"><text class="text-primary font-sm">全部已读</text></view>
+    </view>
+
+    <view class="notif-item card mb-sm" wx:for="{{notifications}}" wx:key="id" bindtap="onNotifTap" data-index="{{index}}">
+      <view class="flex-row gap-sm">
+        <view class="avatar-circle" style="background:#3B82F6"><text class="avatar-text">{{item.from_username[0]}}</text></view>
+        <view class="flex-col flex-1">
+          <view class="flex-between">
+            <text class="font-bold font-sm">{{item.from_username}}</text>
+            <text class="text-muted font-xs">{{item.relativeTime}}</text>
+          </view>
+          <text class="font-sm mt-xs">在 <text class="text-primary">{{item.task_name}}</text> 中@了你</text>
+          <text class="notif-note text-secondary font-sm mt-xs">{{item.note}}</text>
+
+          <!-- 回复区域 -->
+          <view class="replies" wx:if="{{item.replies.length > 0}}">
+            <view class="reply-item" wx:for="{{item.replies}}" wx:key="id" wx:for-item="reply">
+              <text class="font-xs font-bold">{{reply.from_username}}：</text>
+              <text class="font-xs text-secondary">{{reply.content}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="unread-dot" wx:if="{{!item.is_read}}"></view>
+    </view>
+
+    <empty-state wx:if="{{notifications.length === 0}}" message="暂无@我的消息" icon="🔔"></empty-state>
+  </block>
+
+  <!-- 回复输入 -->
+  <view class="reply-bar safe-bottom" wx:if="{{replyingTo}}">
+    <input class="reply-input" placeholder="回复 {{replyingUsername}}..." value="{{replyContent}}" bindinput="onReplyInput" confirm-type="send" bindconfirm="onSendReply" />
+    <view class="reply-send" bindtap="onSendReply">发送</view>
+  </view>
+</view>

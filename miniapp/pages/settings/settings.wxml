@@ -1,0 +1,56 @@
+<view class="page-container">
+  <view class="settings-section">
+    <text class="section-title font-bold">数据管理</text>
+
+    <view class="setting-item card mb-sm" bindtap="onExportJSON">
+      <view class="flex-row"><text class="setting-icon">📤</text><text>导出数据 (JSON)</text></view>
+      <text class="text-muted font-xs">导出所有任务和分类数据</text>
+    </view>
+
+    <view class="setting-item card mb-sm" bindtap="onImportJSON">
+      <view class="flex-row"><text class="setting-icon">📥</text><text>导入数据 (JSON)</text></view>
+      <text class="text-muted font-xs">从 JSON 文件导入数据</text>
+    </view>
+
+    <view class="setting-item card mb-sm" bindtap="onClearData" wx:if="{{isAdmin}}">
+      <view class="flex-row"><text class="setting-icon">🗑️</text><text class="text-danger">清除所有数据</text></view>
+      <text class="text-muted font-xs">删除所有任务、分类和进度记录</text>
+    </view>
+  </view>
+
+  <view class="settings-section">
+    <text class="section-title font-bold">导航</text>
+
+    <view class="setting-item card mb-sm" bindtap="goAdmin" wx:if="{{isAdmin}}">
+      <view class="flex-row"><text class="setting-icon">👥</text><text>用户管理</text></view>
+    </view>
+
+    <view class="setting-item card mb-sm" bindtap="goAccount">
+      <view class="flex-row"><text class="setting-icon">🔑</text><text>修改密码</text></view>
+    </view>
+
+    <view class="setting-item card mb-sm" bindtap="goFollowUp">
+      <view class="flex-row"><text class="setting-icon">📋</text><text>指派的任务</text></view>
+    </view>
+
+    <view class="setting-item card mb-sm" bindtap="goMentions">
+      <view class="flex-row"><text class="setting-icon">🔔</text><text>@我的消息</text></view>
+    </view>
+
+    <view class="setting-item card mb-sm" bindtap="goMyMentions">
+      <view class="flex-row"><text class="setting-icon">💬</text><text>我@别人的</text></view>
+    </view>
+
+    <view class="setting-item card mb-sm" bindtap="goAttachments">
+      <view class="flex-row"><text class="setting-icon">📁</text><text>附件清单</text></view>
+    </view>
+  </view>
+
+  <view class="settings-section">
+    <view class="setting-item card mb-sm" bindtap="onLogout">
+      <view class="flex-row"><text class="setting-icon">🚪</text><text class="text-danger">退出登录</text></view>
+    </view>
+  </view>
+
+  <confirm-dialog visible="{{showConfirm}}" title="{{confirmTitle}}" message="{{confirmMessage}}" confirm-color="#F43F5E" bind:confirm="onConfirmAction" bind:cancel="hideConfirm"></confirm-dialog>
+</view>

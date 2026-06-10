@@ -1,0 +1,8 @@
+.search-input-wrapper {
+  display: flex; align-items: center; background: var(--color-card);
+  border: 2rpx solid var(--color-border); border-radius: var(--radius-lg);
+  padding: 0 24rpx; height: 80rpx;
+}
+.search-icon { font-size: 28rpx; margin-right: 12rpx; }
+.search-input { flex: 1; height: 80rpx; font-size: var(--font-md); }
+.clear-btn { padding: 8rpx 16rpx; color: var(--color-text-muted); font-size: var(--font-sm); }

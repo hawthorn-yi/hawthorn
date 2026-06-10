@@ -1,0 +1,11 @@
+.mark-all-btn { padding: 8rpx 16rpx; }
+.notif-item { margin: 8rpx 24rpx; padding: 20rpx; position: relative; }
+.avatar-circle { width: 64rpx; height: 64rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.avatar-text { color: #fff; font-size: 24rpx; font-weight: 600; }
+.notif-note { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.unread-dot { position: absolute; top: 20rpx; right: 20rpx; width: 16rpx; height: 16rpx; border-radius: 50%; background: var(--color-danger); }
+.replies { margin-top: 12rpx; padding: 12rpx; background: var(--color-bg); border-radius: var(--radius-md); }
+.reply-item { padding: 4rpx 0; }
+.reply-bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; background: #fff; padding: 16rpx 24rpx; box-shadow: 0 -4rpx 12rpx rgba(0,0,0,0.05); z-index: 50; }
+.reply-input { flex: 1; height: 72rpx; background: var(--color-bg); border-radius: var(--radius-md); padding: 0 24rpx; font-size: var(--font-md); }
+.reply-send { margin-left: 16rpx; background: var(--color-primary); color: #fff; padding: 12rpx 32rpx; border-radius: var(--radius-md); font-size: var(--font-sm); }

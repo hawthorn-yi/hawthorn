@@ -1,0 +1,139 @@
+<view class="page-container">
+  <!-- 顶部统计卡片 -->
+  <view class="stats-section">
+    <view class="stats-grid">
+      <view class="stat-card" bindtap="setFilter" data-filter="all">
+        <text class="stat-number">{{stats.all}}</text>
+        <text class="stat-label">全部任务</text>
+      </view>
+      <view class="stat-card" bindtap="setFilter" data-filter="in-progress">
+        <text class="stat-number text-primary">{{stats.active}}</text>
+        <text class="stat-label">进行中</text>
+      </view>
+      <view class="stat-card" bindtap="setFilter" data-filter="completed">
+        <text class="stat-number text-success">{{stats.completed}}</text>
+        <text class="stat-label">已完成</text>
+      </view>
+      <view class="stat-card" bindtap="setFilter" data-filter="overdue">
+        <text class="stat-number text-danger">{{stats.overdue}}</text>
+        <text class="stat-label">已逾期</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 筛选 + 搜索 -->
+  <view class="filter-section">
+    <view class="filter-tabs">
+      <view class="filter-tab {{filter === 'all' ? 'filter-active' : ''}}" bindtap="setFilter" data-filter="all">全部</view>
+      <view class="filter-tab {{filter === 'in-progress' ? 'filter-active' : ''}}" bindtap="setFilter" data-filter="in-progress">进行中</view>
+      <view class="filter-tab {{filter === 'completed' ? 'filter-active' : ''}}" bindtap="setFilter" data-filter="completed">已完成</view>
+      <view class="filter-tab {{filter === 'overdue' ? 'filter-active' : ''}}" bindtap="setFilter" data-filter="overdue">逾期</view>
+    </view>
+    <search-bar placeholder="搜索任务..." value="{{searchQuery}}" bind:input="onSearchInput" bind:clear="onSearchClear"></search-bar>
+  </view>
+
+  <!-- 任务列表 -->
+  <view class="task-list" wx:if="{{filteredTasks.length > 0}}">
+    <task-card
+      wx:for="{{filteredTasks}}" wx:key="id"
+      task-id="{{item.id}}" name="{{item.name}}" status="{{item.status}}"
+      progress="{{item.progress}}" category-name="{{item.categoryName}}"
+      category-color="{{item.categoryColor}}" deadline="{{item.deadline}}"
+      assignee-username="{{item.assignee_username}}"
+      history-count="{{item.history.length}}"
+      bind:tap="onTaskTap" bind:toggle="onToggleComplete" bind:more="onTaskMore"
+    ></task-card>
+  </view>
+
+  <empty-state wx:if="{{filteredTasks.length === 0 && !loading}}" message="{{emptyMessage}}" icon="📋" sub-message="点击右下角按钮创建新任务"></empty-state>
+
+  <!-- 加载中 -->
+  <view class="flex-center p-lg" wx:if="{{loading}}">
+    <text class="text-muted">加载中...</text>
+  </view>
+
+  <!-- 新建按钮 -->
+  <view class="fab" bindtap="showAddDialog">
+    <text class="fab-icon">+</text>
+  </view>
+
+  <!-- 新建任务弹窗 -->
+  <view class="overlay" bindtap="hideAddDialog" wx:if="{{showAdd}}"></view>
+  <view class="bottom-sheet {{showAdd ? 'sheet-show' : ''}}" wx:if="{{showAdd}}">
+    <view class="sheet-header flex-between">
+      <text class="font-lg font-bold">新建任务</text>
+      <view bindtap="hideAddDialog"><text class="text-muted font-xl">✕</text></view>
+    </view>
+    <scroll-view scroll-y class="sheet-body">
+      <view class="form-item">
+        <text class="form-label">任务名称 *</text>
+        <input class="form-input-box" placeholder="输入任务名称" value="{{newTask.name}}" bindinput="onNewNameInput" />
+      </view>
+      <view class="form-item">
+        <text class="form-label">分类</text>
+        <category-picker categories="{{categories}}" selected-id="{{newTask.category}}" bind:select="onNewCategorySelect"></category-picker>
+      </view>
+      <view class="form-item">
+        <text class="form-label">截止日期</text>
+        <picker mode="date" value="{{newTask.deadline}}" bindchange="onNewDeadlineChange">
+          <view class="form-input-box flex-between">
+            <text>{{newTask.deadline || '选择日期'}}</text>
+            <text class="text-muted">📅</text>
+          </view>
+        </picker>
+      </view>
+      <view class="form-item">
+        <text class="form-label">初始进度</text>
+        <slider value="{{newTask.progress}}" min="0" max="100" activeColor="#3B82F6" bindchange="onNewProgressChange" show-value />
+      </view>
+      <view class="form-item">
+        <text class="form-label">备注</text>
+        <textarea class="form-textarea" placeholder="输入备注（支持 @提及）" value="{{newTask.note}}" bindinput="onNewNoteInput" auto-height maxlength="500" />
+      </view>
+    </scroll-view>
+    <view class="sheet-footer safe-bottom">
+      <button class="submit-btn" bindtap="onAddTask" loading="{{submitting}}" disabled="{{submitting}}">创建任务</button>
+    </view>
+  </view>
+
+  <!-- 任务操作弹窗 -->
+  <view class="overlay" bindtap="hideActionSheet" wx:if="{{showActionSheet}}"></view>
+  <view class="action-sheet {{showActionSheet ? 'sheet-show' : ''}}" wx:if="{{showActionSheet}}">
+    <view class="action-sheet-header">
+      <text class="font-md font-bold">{{actionTaskName}}</text>
+    </view>
+    <view class="action-sheet-body">
+      <view class="action-item" bindtap="onViewDetail">
+        <text>📋 查看详情</text>
+      </view>
+      <view class="action-item" bindtap="onMoveUp">
+        <text>⬆️ 上移</text>
+      </view>
+      <view class="action-item" bindtap="onMoveDown">
+        <text>⬇️ 下移</text>
+      </view>
+      <view class="action-item" bindtap="onMoveTop">
+        <text>⏫ 置顶</text>
+      </view>
+      <view class="action-item" bindtap="onTerminate" wx:if="{{actionTaskStatus !== 'terminated'}}">
+        <text class="text-warning">⏹️ 终止任务</text>
+      </view>
+      <view class="action-item" bindtap="onRestore" wx:if="{{actionTaskStatus === 'terminated'}}">
+        <text class="text-primary">🔄 恢复任务</text>
+      </view>
+      <view class="action-item action-item-danger" bindtap="onDeleteTask">
+        <text class="text-danger">🗑️ 删除任务</text>
+      </view>
+    </view>
+    <view class="action-sheet-footer safe-bottom">
+      <view class="action-cancel" bindtap="hideActionSheet">取消</view>
+    </view>
+  </view>
+
+  <!-- 确认弹窗 -->
+  <confirm-dialog
+    visible="{{showConfirm}}" title="{{confirmTitle}}" message="{{confirmMessage}}"
+    confirm-text="{{confirmText}}" confirm-color="{{confirmColor}}"
+    bind:confirm="onConfirmAction" bind:cancel="hideConfirm"
+  ></confirm-dialog>
+</view>

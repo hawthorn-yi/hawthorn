@@ -1,0 +1,5 @@
+<view class="empty-state flex-col flex-center" style="padding:{{padding || '80rpx 40rpx'}}">
+  <text class="empty-icon">{{icon || '📭'}}</text>
+  <text class="empty-text">{{message || '暂无数据'}}</text>
+  <text class="empty-sub text-muted font-sm" wx:if="{{subMessage}}">{{subMessage}}</text>
+</view>

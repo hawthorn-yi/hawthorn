@@ -1,0 +1,22 @@
+<view class="page-container">
+  <view class="p-lg">
+    <text class="font-xl font-bold">修改密码</text>
+  </view>
+
+  <view class="form-section">
+    <view class="form-item">
+      <text class="form-label">原密码</text>
+      <input class="form-input-box" placeholder="输入原密码" password="true" value="{{oldPassword}}" bindinput="onOldPasswordInput" />
+    </view>
+    <view class="form-item">
+      <text class="form-label">新密码</text>
+      <input class="form-input-box" placeholder="至少4个字符" password="true" value="{{newPassword}}" bindinput="onNewPasswordInput" />
+    </view>
+    <view class="form-item">
+      <text class="form-label">确认新密码</text>
+      <input class="form-input-box" placeholder="再次输入新密码" password="true" value="{{confirmPassword}}" bindinput="onConfirmPasswordInput" />
+    </view>
+
+    <button class="submit-btn" bindtap="onChangePassword" loading="{{loading}}" disabled="{{loading}}">修改密码</button>
+  </view>
+</view>

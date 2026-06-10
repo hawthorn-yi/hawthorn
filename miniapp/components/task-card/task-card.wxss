@@ -1,0 +1,39 @@
+.task-card { margin-bottom: 16rpx; }
+
+.task-name {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.task-name-done {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.progress-section { width: 100%; }
+
+.progress-track {
+  height: 12rpx;
+  background: var(--color-border-light);
+  border-radius: 6rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 6rpx;
+  transition: width 0.3s ease;
+}
+
+.action-icon {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-border-light);
+  font-size: 28rpx;
+}

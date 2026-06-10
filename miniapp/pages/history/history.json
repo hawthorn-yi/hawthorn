@@ -1,0 +1,1 @@
+{ "navigationBarTitleText": "更新历史", "enablePullDownRefresh": true, "usingComponents": { "search-bar": "/components/search-bar/search-bar", "empty-state": "/components/empty-state/empty-state" } }

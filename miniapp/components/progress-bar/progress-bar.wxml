@@ -1,0 +1,9 @@
+<view class="progress-bar-wrapper">
+  <view class="flex-between mb-xs">
+    <text class="text-muted font-xs">{{label}}</text>
+    <text class="font-xs font-bold" style="color:{{color}}">{{value}}%</text>
+  </view>
+  <view class="progress-track">
+    <view class="progress-fill" style="width:{{value}}%;background-color:{{color}}"></view>
+  </view>
+</view>

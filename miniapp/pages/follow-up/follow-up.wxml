@@ -1,0 +1,17 @@
+<view class="page-container">
+  <view class="flex-center p-lg" wx:if="{{loading}}"><text class="text-muted">加载中...</text></view>
+
+  <block wx:if="{{!loading}}">
+    <view class="stats-grid">
+      <view class="stat-card"><text class="stat-number text-warning">{{pendingCount}}</text><text class="stat-label">待跟进</text></view>
+      <view class="stat-card"><text class="stat-number text-primary">{{dueSoonCount}}</text><text class="stat-label">即将到期</text></view>
+      <view class="stat-card"><text class="stat-number text-danger">{{overdueCount}}</text><text class="stat-label">已逾期</text></view>
+    </view>
+
+    <view class="task-list" wx:if="{{tasks.length > 0}}">
+      <task-card wx:for="{{tasks}}" wx:key="id" task-id="{{item.id}}" name="{{item.name}}" status="{{item.status}}" progress="{{item.progress}}" category-name="{{item.categoryName}}" category-color="{{item.categoryColor}}" deadline="{{item.deadline}}" assignee-username="{{item.assignee_username}}" history-count="{{item.history.length}}" bind:tap="onTaskTap"></task-card>
+    </view>
+
+    <empty-state wx:if="{{tasks.length === 0}}" message="没有指派给你的待办任务" icon="✅"></empty-state>
+  </block>
+</view>

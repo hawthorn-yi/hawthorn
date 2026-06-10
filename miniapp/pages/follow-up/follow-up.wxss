@@ -1,0 +1,5 @@
+.stats-grid { display: flex; gap: 16rpx; padding: 24rpx; }
+.stat-card { flex: 1; background: #fff; border-radius: var(--radius-lg); padding: 20rpx; text-align: center; box-shadow: var(--shadow-sm); }
+.stat-number { display: block; font-size: 40rpx; font-weight: 700; }
+.stat-label { display: block; font-size: var(--font-xs); color: var(--color-text-muted); margin-top: 4rpx; }
+.task-list { padding: 0 24rpx; }

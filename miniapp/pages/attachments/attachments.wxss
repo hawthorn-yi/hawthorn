@@ -1,0 +1,3 @@
+.section-header { display: flex; justify-content: space-between; align-items: center; padding: 24rpx 24rpx 8rpx; }
+.att-item { margin: 8rpx 24rpx; padding: 20rpx; }
+.att-icon { margin-right: 12rpx; font-size: 32rpx; }

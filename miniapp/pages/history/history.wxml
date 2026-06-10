@@ -1,0 +1,31 @@
+<view class="page-container">
+  <view class="flex-center p-lg" wx:if="{{loading}}"><text class="text-muted">加载中...</text></view>
+
+  <block wx:if="{{!loading}}">
+    <!-- 搜索 -->
+    <view class="p-md">
+      <search-bar placeholder="搜索更新记录..." value="{{searchQuery}}" bind:input="onSearchInput" bind:clear="onSearchClear"></search-bar>
+    </view>
+
+    <!-- 按天分组 -->
+    <view class="history-day" wx:for="{{groupedEntries}}" wx:key="date">
+      <view class="day-header">
+        <text class="day-date font-bold">{{item.date}}</text>
+        <text class="day-weekday text-muted font-sm">{{item.weekday}}</text>
+      </view>
+      <view class="entry-card card mb-sm" wx:for="{{item.entries}}" wx:key="id" bindtap="onEntryTap" data-task-id="{{item.task_id}}">
+        <view class="flex-between mb-xs">
+          <text class="font-sm font-bold">{{item.username || '未知'}}</text>
+          <text class="text-muted font-xs">{{item.time}}</text>
+        </view>
+        <text class="entry-note">{{item.note}}</text>
+        <view class="flex-row gap-sm mt-xs">
+          <view class="badge badge-primary font-xs" wx:if="{{item.progress > 0}}">{{item.progress}}%</view>
+          <text class="text-muted font-xs">{{item.taskName}}</text>
+        </view>
+      </view>
+    </view>
+
+    <empty-state wx:if="{{groupedEntries.length === 0}}" message="暂无更新记录" icon="📝"></empty-state>
+  </block>
+</view>

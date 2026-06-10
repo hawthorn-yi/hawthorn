@@ -1,0 +1,52 @@
+<view class="page-container">
+  <view class="flex-center p-lg" wx:if="{{loading}}"><text class="text-muted">加载中...</text></view>
+
+  <block wx:if="{{!loading}}">
+    <!-- 概览统计 -->
+    <view class="overview-stats">
+      <view class="overview-card">
+        <text class="overview-number text-primary">{{categories.length}}</text>
+        <text class="overview-label">分类数</text>
+      </view>
+      <view class="overview-card">
+        <text class="overview-number text-success">{{completedCount}}</text>
+        <text class="overview-label">已完成</text>
+      </view>
+      <view class="overview-card">
+        <text class="overview-number text-danger">{{overdueCount}}</text>
+        <text class="overview-label">已逾期</text>
+      </view>
+    </view>
+
+    <!-- 分类列表 -->
+    <view class="category-section">
+      <view class="category-group card mb-md" wx:for="{{categories}}" wx:key="id">
+        <view class="cat-header" bindtap="toggleCategory" data-id="{{item.id}}">
+          <view class="color-dot-lg" style="background-color:{{item.color}}"></view>
+          <view class="flex-1">
+            <text class="font-bold font-lg">{{item.name}}</text>
+            <text class="text-muted font-xs ml-xs">{{item.taskCount}}个任务</text>
+          </view>
+          <view class="flex-row gap-sm">
+            <text class="font-xs text-success" wx:if="{{item.completedCount > 0}}">{{item.completedCount}}完成</text>
+            <text class="font-xs text-danger" wx:if="{{item.overdueCount > 0}}">{{item.overdueCount}}逾期</text>
+          </view>
+          <text class="toggle-icon">{{item.collapsed ? '▶' : '▼'}}</text>
+        </view>
+
+        <view class="cat-tasks" wx:if="{{!item.collapsed && item.tasks.length > 0}}">
+          <view class="cat-task-item flex-row" wx:for="{{item.tasks}}" wx:key="id" bindtap="onTaskTap" data-id="{{item.id}}">
+            <view class="badge {{item.statusClass}}" style="{{item.statusStyle}}">{{item.statusText}}</view>
+            <text class="flex-1 font-md ml-sm truncate">{{item.name}}</text>
+            <text class="font-xs" style="color:{{item.progressColor}}">{{item.progress}}%</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 管理分类按钮 -->
+    <view class="add-category-btn card flex-center" bindtap="onAddCategory" wx:if="{{isAdmin}}">
+      <text class="text-primary">+ 添加分类</text>
+    </view>
+  </block>
+</view>

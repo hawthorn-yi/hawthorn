@@ -1,0 +1,24 @@
+<view class="page-container">
+  <view class="flex-center p-lg" wx:if="{{loading}}"><text class="text-muted">加载中...</text></view>
+
+  <block wx:if="{{!loading}}">
+    <!-- 按用户筛选 -->
+    <scroll-view scroll-x class="filter-scroll">
+      <view class="user-filter {{!selectedUser ? 'filter-active' : ''}}" bindtap="onFilterUser" data-id="">全部</view>
+      <view class="user-filter {{selectedUser === item.to_user_id ? 'filter-active' : ''}}" wx:for="{{mentionedUsers}}" wx:key="to_user_id" bindtap="onFilterUser" data-id="{{item.to_user_id}}">
+        {{item.to_username}}
+      </view>
+    </scroll-view>
+
+    <view class="notif-item card mb-sm" wx:for="{{filteredMentions}}" wx:key="id" bindtap="onMentionTap" data-task-id="{{item.task_id}}">
+      <view class="flex-between mb-xs">
+        <text class="font-sm font-bold">@{{item.to_username}}</text>
+        <text class="text-muted font-xs">{{item.relativeTime}}</text>
+      </view>
+      <text class="font-sm text-secondary">{{item.note}}</text>
+      <text class="text-muted font-xs mt-xs">在 {{item.task_name}}</text>
+    </view>
+
+    <empty-state wx:if="{{filteredMentions.length === 0}}" message="暂无@记录" icon="💬"></empty-state>
+  </block>
+</view>

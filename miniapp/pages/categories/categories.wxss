@@ -1,0 +1,11 @@
+.overview-stats { display: flex; gap: 16rpx; padding: 24rpx; }
+.overview-card { flex: 1; background: #fff; border-radius: var(--radius-lg); padding: 20rpx; text-align: center; box-shadow: var(--shadow-sm); }
+.overview-number { display: block; font-size: 44rpx; font-weight: 700; }
+.overview-label { display: block; font-size: var(--font-xs); color: var(--color-text-muted); }
+.category-section { padding: 0 24rpx; }
+.cat-header { display: flex; align-items: center; }
+.color-dot-lg { width: 32rpx; height: 32rpx; border-radius: 50%; margin-right: 16rpx; }
+.toggle-icon { font-size: var(--font-sm); color: var(--color-text-muted); padding: 8rpx; }
+.cat-tasks { border-top: 1rpx solid var(--color-border-light); padding-top: 8rpx; }
+.cat-task-item { padding: 16rpx 8rpx; border-bottom: 1rpx solid var(--color-border-light); align-items: center; }
+.add-category-btn { margin: 16rpx 24rpx; padding: 24rpx; border: 2rpx dashed var(--color-border); }

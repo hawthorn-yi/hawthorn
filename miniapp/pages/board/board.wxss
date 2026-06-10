@@ -1,0 +1,12 @@
+.category-group { margin: 16rpx 24rpx; background: #fff; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
+.group-header { display: flex; align-items: center; padding: 24rpx; }
+.color-bar { width: 8rpx; height: 48rpx; border-radius: 4rpx; margin-right: 16rpx; }
+.group-info { display: flex; align-items: center; }
+.group-name { font-size: var(--font-lg); }
+.toggle-icon { font-size: var(--font-sm); color: var(--color-text-muted); padding: 8rpx; }
+.group-tasks { padding: 0 24rpx 16rpx; }
+.board-task { padding: 20rpx; }
+.task-name { font-size: var(--font-md); font-weight: 500; color: var(--color-text); }
+.progress-mini { flex: 1; height: 8rpx; background: var(--color-border-light); border-radius: 4rpx; overflow: hidden; margin-right: 12rpx; }
+.progress-mini-fill { height: 100%; border-radius: 4rpx; }
+.empty-group { text-align: center; padding: 32rpx; }

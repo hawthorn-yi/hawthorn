@@ -1,0 +1,8 @@
+.stats-grid { display: flex; gap: 16rpx; padding: 24rpx; }
+.stat-card { flex: 1; background: #fff; border-radius: var(--radius-lg); padding: 20rpx; text-align: center; box-shadow: var(--shadow-sm); }
+.stat-number { display: block; font-size: 40rpx; font-weight: 700; }
+.stat-label { display: block; font-size: var(--font-xs); color: var(--color-text-muted); }
+.user-item { margin: 8rpx 24rpx; padding: 20rpx; }
+.avatar-circle { width: 64rpx; height: 64rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 16rpx; flex-shrink: 0; }
+.avatar-text { color: #fff; font-size: 24rpx; font-weight: 600; }
+.action-btn-sm { padding: 8rpx 16rpx; background: var(--color-bg); border-radius: var(--radius-sm); }

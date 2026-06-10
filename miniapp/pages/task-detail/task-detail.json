@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "任务详情",
+  "usingComponents": {
+    "empty-state": "/components/empty-state/empty-state",
+    "category-picker": "/components/category-picker/category-picker"
+  }
+}

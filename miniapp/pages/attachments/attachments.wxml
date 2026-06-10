@@ -1,0 +1,25 @@
+<view class="page-container">
+  <view class="flex-center p-lg" wx:if="{{loading}}"><text class="text-muted">加载中...</text></view>
+
+  <block wx:if="{{!loading}}">
+    <search-bar placeholder="搜索附件..." value="{{searchQuery}}" bind:input="onSearchInput" bind:clear="onSearchClear" class="p-md"></search-bar>
+
+    <view class="att-section" wx:for="{{groups}}" wx:key="taskId">
+      <view class="section-header">
+        <text class="font-bold font-lg">{{item.taskName}}</text>
+        <text class="text-muted font-xs">{{item.attachments.length}}个附件</text>
+      </view>
+      <view class="att-item card mb-sm" wx:for="{{item.attachments}}" wx:key="id" bindtap="onPreview" data-index="{{index}}" data-group-index="{{gIdx}}">
+        <view class="flex-row flex-1">
+          <text class="att-icon">📎</text>
+          <view class="flex-col flex-1">
+            <text class="font-md truncate">{{item.name}}</text>
+            <text class="text-muted font-xs">{{item.sizeText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <empty-state wx:if="{{groups.length === 0}}" message="暂无附件" icon="📁"></empty-state>
+  </block>
+</view>

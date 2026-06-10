@@ -1,0 +1,153 @@
+/* ─── Design Tokens ─── */
+page {
+  --color-primary: #3B82F6;
+  --color-primary-dark: #2563EB;
+  --color-primary-light: #EFF6FF;
+  --color-success: #10B981;
+  --color-success-light: #ECFDF5;
+  --color-warning: #F59E0B;
+  --color-warning-light: #FFFBEB;
+  --color-danger: #F43F5E;
+  --color-danger-light: #FFF1F2;
+
+  --color-bg: #F8FAFC;
+  --color-card: #FFFFFF;
+  --color-border: #E2E8F0;
+  --color-border-light: #F1F5F9;
+  --color-text: #334155;
+  --color-text-secondary: #64748B;
+  --color-text-muted: #94A3B8;
+
+  --radius-sm: 8rpx;
+  --radius-md: 16rpx;
+  --radius-lg: 24rpx;
+  --radius-xl: 32rpx;
+
+  --shadow-sm: 0 1rpx 2rpx 0 rgba(0,0,0,0.05);
+  --shadow-md: 0 4rpx 6rpx -1rpx rgba(0,0,0,0.07), 0 2rpx 4rpx -2rpx rgba(0,0,0,0.05);
+  --shadow-lg: 0 10rpx 15rpx -3rpx rgba(0,0,0,0.08), 0 4rpx 6rpx -4rpx rgba(0,0,0,0.05);
+
+  --font-xs: 22rpx;
+  --font-sm: 26rpx;
+  --font-md: 30rpx;
+  --font-lg: 34rpx;
+  --font-xl: 40rpx;
+  --font-2xl: 48rpx;
+
+  font-size: var(--font-md);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+}
+
+/* ─── Global Utility Classes ─── */
+.flex-row { display: flex; flex-direction: row; align-items: center; }
+.flex-col { display: flex; flex-direction: column; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-1 { flex: 1; }
+.gap-xs { gap: 8rpx; }
+.gap-sm { gap: 16rpx; }
+.gap-md { gap: 24rpx; }
+.gap-lg { gap: 32rpx; }
+
+.card {
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  padding: 24rpx;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-border {
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  padding: 24rpx;
+  border: 1rpx solid var(--color-border);
+}
+
+.text-primary { color: var(--color-primary); }
+.text-success { color: var(--color-success); }
+.text-warning { color: var(--color-warning); }
+.text-danger { color: var(--color-danger); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-muted { color: var(--color-text-muted); }
+
+.font-xs { font-size: var(--font-xs); }
+.font-sm { font-size: var(--font-sm); }
+.font-md { font-size: var(--font-md); }
+.font-lg { font-size: var(--font-lg); }
+.font-xl { font-size: var(--font-xl); }
+.font-bold { font-weight: 600; }
+.font-semibold { font-weight: 500; }
+
+.bg-primary { background-color: var(--color-primary); }
+.bg-primary-light { background-color: var(--color-primary-light); }
+.bg-success-light { background-color: var(--color-success-light); }
+.bg-warning-light { background-color: var(--color-warning-light); }
+.bg-danger-light { background-color: var(--color-danger-light); }
+
+.mt-xs { margin-top: 8rpx; }
+.mt-sm { margin-top: 16rpx; }
+.mt-md { margin-top: 24rpx; }
+.mt-lg { margin-top: 32rpx; }
+.mb-xs { margin-bottom: 8rpx; }
+.mb-sm { margin-bottom: 16rpx; }
+.mb-md { margin-bottom: 24rpx; }
+.mb-lg { margin-bottom: 32rpx; }
+.ml-xs { margin-left: 8rpx; }
+.mr-xs { margin-right: 8rpx; }
+.p-sm { padding: 16rpx; }
+.p-md { padding: 24rpx; }
+.p-lg { padding: 32rpx; }
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.divider {
+  height: 1rpx;
+  background-color: var(--color-border);
+  margin: 16rpx 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  font-size: var(--font-xs);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.badge-primary { background: var(--color-primary-light); color: var(--color-primary); }
+.badge-success { background: var(--color-success-light); color: var(--color-success); }
+.badge-warning { background: var(--color-warning-light); color: var(--color-warning); }
+.badge-danger { background: var(--color-danger-light); color: var(--color-danger); }
+
+/* 遮罩层 */
+.overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
+}
+
+/* 底部安全区域 */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 页面容器 */
+.page-container {
+  min-height: 100vh;
+  background: var(--color-bg);
+}
+
+/* 列表项 hover */
+.hover-active:active {
+  opacity: 0.7;
+}
