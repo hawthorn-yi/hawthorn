@@ -124,7 +124,7 @@ function StatsCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
-      whileHover={{ y: -1, boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
+      whileHover={{ y: -1 }}
       className="bg-white border border-[#E2E8F0] rounded-lg sm:rounded-xl px-3 py-2 sm:px-4 sm:py-2.5 cursor-default transition-shadow duration-200 flex items-center gap-2.5 sm:gap-3"
     >
       <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: iconBg }}>
@@ -211,8 +211,8 @@ function SortableTaskCard({ task, index, allCategories, projectMembers, onToggle
     <div ref={setNodeRef} style={style}>
       <motion.div layout
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -40, height: 0, marginBottom: 0 }}
-        transition={{ opacity: { duration: 0.35 }, y: { duration: 0.35 }, layout: { duration: 0.3 }, delay: index < 10 ? index * 0.08 : 0 }}
-        whileHover={{ y: -2, boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
+        transition={{ opacity: { duration: 0.35 }, y: { duration: 0.35 }, layout: { duration: 0.3 }, delay: Math.min(index * 0.04, 0.4) }}
+        whileHover={{ y: -1 }}
         id={`task-card-${task.id}`}
         className={`bg-white border rounded-xl px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#CBD5E1] transition-all duration-200 ${
           isHighlighted

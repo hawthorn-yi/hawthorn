@@ -1,22 +1,32 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router";
-import Dashboard from "./pages/Dashboard";
-import Board from "./pages/Board";
-import HistoryPage from "./pages/History";
-import Categories from "./pages/Categories";
-import AttachmentsList from "./pages/AttachmentsList";
-import Settings from "./pages/Settings";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Admin from "./pages/Admin";
-import Account from "./pages/Account";
-import FollowUp from "./pages/FollowUp";
-import Mentions from "./pages/Mentions";
-import MyMentions from "./pages/MyMentions";
+
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Board = lazy(() => import("./pages/Board"));
+const HistoryPage = lazy(() => import("./pages/History"));
+const Categories = lazy(() => import("./pages/Categories"));
+const AttachmentsList = lazy(() => import("./pages/AttachmentsList"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const Admin = lazy(() => import("./pages/Admin"));
+const Account = lazy(() => import("./pages/Account"));
+const FollowUp = lazy(() => import("./pages/FollowUp"));
+const Mentions = lazy(() => import("./pages/Mentions"));
+const MyMentions = lazy(() => import("./pages/MyMentions"));
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 
 export default function App() {
   return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-[#F8FAFC]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-[#94A3B8]">加载中...</p>
+        </div>
+      </div>
+    }>
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<Login />} />
@@ -111,6 +121,7 @@ export default function App() {
           </ProtectedRoute>
         }
       />
-    </Routes>
+     </Routes>
+    </Suspense>
   );
 }

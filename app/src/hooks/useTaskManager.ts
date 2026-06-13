@@ -179,69 +179,33 @@ export function useTaskManager() {
     fetchAllData();
   }, [fetchAllData]);
 
-  // ─── Realtime subscription for multi-client sync ───
+    // ─── Realtime subscription for multi-client sync ───
+  // Consolidated: single channel with debounce to reduce connections and re-fetches
   useEffect(() => {
-    let tasksChannel: ReturnType<typeof supabase.channel> | null = null;
-    let catsChannel: ReturnType<typeof supabase.channel> | null = null;
-    let entriesChannel: ReturnType<typeof supabase.channel> | null = null;
-    let attsChannel: ReturnType<typeof supabase.channel> | null = null;
-    let membersChannel: ReturnType<typeof supabase.channel> | null = null;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const handleChange = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => fetchAllData(), 300);
+    };
 
     try {
-      tasksChannel = supabase
-        .channel("tasks-realtime")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "tasks" },
-          () => fetchAllData()
-        )
-        .subscribe();
-
-      catsChannel = supabase
-        .channel("categories-realtime")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "categories" },
-          () => fetchAllData()
-        )
-        .subscribe();
-
-      entriesChannel = supabase
-        .channel("progress-entries-realtime")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "progress_entries" },
-          () => fetchAllData()
-        )
-        .subscribe();
-
-      attsChannel = supabase
-        .channel("attachments-realtime")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "attachments" },
-          () => fetchAllData()
-        )
-        .subscribe();
-
-      membersChannel = supabase
-        .channel("project-members-realtime")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "project_members" },
-          () => fetchAllData()
-        )
+      channel = supabase
+        .channel("project-sync")
+        .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, handleChange)
+        .on("postgres_changes", { event: "*", schema: "public", table: "categories" }, handleChange)
+        .on("postgres_changes", { event: "*", schema: "public", table: "progress_entries" }, handleChange)
+        .on("postgres_changes", { event: "*", schema: "public", table: "attachments" }, handleChange)
+        .on("postgres_changes", { event: "*", schema: "public", table: "project_members" }, handleChange)
         .subscribe();
     } catch {
-      // Realtime not available — app still works without live sync
+      // Realtime not available -- app still works without live sync
     }
 
     return () => {
-      if (tasksChannel) supabase.removeChannel(tasksChannel);
-      if (catsChannel) supabase.removeChannel(catsChannel);
-      if (entriesChannel) supabase.removeChannel(entriesChannel);
-      if (attsChannel) supabase.removeChannel(attsChannel);
-      if (membersChannel) supabase.removeChannel(membersChannel);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (channel) supabase.removeChannel(channel);
     };
   }, [fetchAllData]);
 
