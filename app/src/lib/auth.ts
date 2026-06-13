@@ -1,4 +1,4 @@
-﻿import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export interface AppUser {
   id: string;
@@ -10,7 +10,17 @@ export interface AppUser {
 }
 
 const AUTH_DOMAIN = "project-progress.local";
-function makeEmail(username: string): string { return `${username}@${AUTH_DOMAIN}`; }
+// For ASCII usernames, use as-is. For Chinese usernames, email is stored in user_roles.auth_email
+function makeEmail(username: string): string {
+  // Only ASCII alphanumeric + dots/hyphens/underscores are valid in email local-parts
+  if (/^[a-zA-Z0-9._-]+$/.test(username)) {
+    return `${username}@${AUTH_DOMAIN}`;
+  }
+  // Non-ASCII usernames (Chinese etc.) can't be email local-parts
+  // For these, we need to look up auth_email from user_roles
+  // This function returns a fallback; the actual lookup is done in loginUser
+  return null as unknown as string;
+}
 
 export async function getCurrentUserSession(): Promise<{ user: AppUser | null }> {
   const { data } = await supabase.auth.getSession();
@@ -37,7 +47,24 @@ export async function getCurrentUserSession(): Promise<{ user: AppUser | null }>
 }
 
 export async function loginUser(username: string, password: string): Promise<AppUser> {
-  const { error } = await supabase.auth.signInWithPassword({ email: makeEmail(username), password });
+  // 1. Try direct email (for ASCII usernames like "kevin")
+  let email = makeEmail(username);
+  
+  // 2. If direct fails, look up email from user_roles by display_name
+  if (!email) {
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("auth_email")
+      .eq("display_name", username)
+      .single();
+    if (roleRow?.auth_email) {
+      email = roleRow.auth_email;
+    }
+  }
+  
+  if (!email) throw new Error("用户名或密码错误");
+  
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error("用户名或密码错误");
   const { user } = await getCurrentUserSession();
   if (!user) throw new Error("登录失败");
