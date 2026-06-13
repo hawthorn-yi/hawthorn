@@ -94,6 +94,28 @@ export function useTaskManager() {
         usernameMap.set(u.display_name.toLowerCase(), u.display_name);
       });
 
+      // Also try fetching app_users table as fallback (some systems use this for legacy accounts)
+      let fallbackUserMap: Map<string, string> | null = null;
+      try {
+        const { data: appUsersLegacy } = await supabase
+          .from("app_users")
+          .select("id, display_name");
+        if (appUsersLegacy && appUsersLegacy.length > 0) {
+          fallbackUserMap = new Map();
+          appUsersLegacy.forEach((u) => {
+            // Try both "id" field and common user_id patterns
+            const uid = (u as Record<string, unknown>).id as string || (u as Record<string, unknown>).user_id as string;
+            const dn = (u as Record<string, unknown>).display_name as string || (u as Record<string, unknown>).username as string;
+            if (uid && dn && fallbackUserMap) {
+              fallbackUserMap.set(uid, dn);
+              fallbackUserMap.set(dn.toLowerCase(), dn);
+            }
+          });
+        }
+      } catch (e) {
+        // app_users table may not exist or be inaccessible - ignore
+      }
+
       // Also build a username->id map for @mention resolution
       const usernameToIdMap = new Map<string, string>();
       (appUsers || []).forEach((u) => {
@@ -110,6 +132,10 @@ export function useTaskManager() {
           // user_id might be a username itself (legacy data: "kevin", "肖伍秋", "001")
           username = usernameMap.get(m.user_id.toLowerCase());
         }
+        // Try fallback app_users table
+        if (!username && fallbackUserMap) {
+          username = fallbackUserMap.get(m.user_id) || fallbackUserMap.get(m.user_id.toLowerCase());
+        }
         if (!username) {
           // user_id might be a partial/abbreviated username match
           for (const [key, val] of usernameMap) {
@@ -118,11 +144,20 @@ export function useTaskManager() {
               break;
             }
           }
+          // Also check fallbackUserMap for partial match
+          if (!username && fallbackUserMap) {
+            for (const [key, val] of fallbackUserMap) {
+              if (key.includes(m.user_id.toLowerCase()) || m.user_id.toLowerCase().includes(key)) {
+                username = val;
+                break;
+              }
+            }
+          }
         }
         if (!username) {
-          // Last resort: use user_id directly if short, or truncate UUID
+          // Last resort: short IDs show as-is, unknown UUIDs show "未知用户"
           if (m.user_id.length > 30) {
-            username = m.user_id.slice(0, 8) + "...";
+            username = "未知用户";
           } else {
             username = m.user_id;
           }
@@ -150,7 +185,7 @@ export function useTaskManager() {
         sort_order: t.sort_order ?? i,
         owner_id: t.owner_id,
         assignee_id: t.assignee_id,
-        assignee_username: t.assignee_username || userMap.get(t.assignee_id || "") || usernameMap.get((t.assignee_id || "").toLowerCase()) || undefined,
+        assignee_username: t.assignee_username || userMap.get(t.assignee_id || "") || usernameMap.get((t.assignee_id || "").toLowerCase()) || (fallbackUserMap?.get(t.assignee_id || "")) || (fallbackUserMap?.get((t.assignee_id || "").toLowerCase())) || undefined,
         history: (entries || [])
           .filter((e) => e.task_id === t.id)
           .map((e) => ({
