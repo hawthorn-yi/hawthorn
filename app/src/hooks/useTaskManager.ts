@@ -87,7 +87,12 @@ export function useTaskManager() {
         .select("user_id, display_name");
 
       const userMap = new Map<string, string>();
-      (appUsers || []).forEach((u) => userMap.set(u.user_id, u.display_name));
+      // Also build normalized display_name → display_name map for legacy data compatibility
+      const usernameMap = new Map<string, string>();
+      (appUsers || []).forEach((u) => {
+        userMap.set(u.user_id, u.display_name);
+        usernameMap.set(u.display_name.toLowerCase(), u.display_name);
+      });
 
       // Also build a username->id map for @mention resolution
       const usernameToIdMap = new Map<string, string>();
@@ -99,14 +104,38 @@ export function useTaskManager() {
       userMapRef.current = usernameToIdMap;
 
       // Enrich project members with usernames
-      const enrichedMembers: ProjectMember[] = (members || []).map((m) => ({
-        id: m.id,
-        task_id: m.task_id,
-        user_id: m.user_id,
-        role: m.role,
-        username: userMap.get(m.user_id) || m.user_id,
-        created_at: m.created_at,
-      }));
+      const enrichedMembers: ProjectMember[] = (members || []).map((m) => {
+        let username = userMap.get(m.user_id); // Try UUID lookup first
+        if (!username) {
+          // user_id might be a username itself (legacy data: "kevin", "肖伍秋", "001")
+          username = usernameMap.get(m.user_id.toLowerCase());
+        }
+        if (!username) {
+          // user_id might be a partial/abbreviated username match
+          for (const [key, val] of usernameMap) {
+            if (key.includes(m.user_id.toLowerCase()) || m.user_id.toLowerCase().includes(key)) {
+              username = val;
+              break;
+            }
+          }
+        }
+        if (!username) {
+          // Last resort: use user_id directly if short, or truncate UUID
+          if (m.user_id.length > 30) {
+            username = m.user_id.slice(0, 8) + "...";
+          } else {
+            username = m.user_id;
+          }
+        }
+        return {
+          id: m.id,
+          task_id: m.task_id,
+          user_id: m.user_id,
+          role: m.role,
+          username,
+          created_at: m.created_at,
+        };
+      });
       setProjectMembers(enrichedMembers);
 
       // Assemble tasks with nested history and attachments
@@ -121,7 +150,7 @@ export function useTaskManager() {
         sort_order: t.sort_order ?? i,
         owner_id: t.owner_id,
         assignee_id: t.assignee_id,
-        assignee_username: t.assignee_username || userMap.get(t.assignee_id || "") || undefined,
+        assignee_username: t.assignee_username || userMap.get(t.assignee_id || "") || usernameMap.get((t.assignee_id || "").toLowerCase()) || undefined,
         history: (entries || [])
           .filter((e) => e.task_id === t.id)
           .map((e) => ({
