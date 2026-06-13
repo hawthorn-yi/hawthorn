@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+﻿import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import type { Task, ProgressEntry, Attachment, CustomCategory, ProjectMember } from "@/types";
 import { DEFAULT_CATEGORIES } from "@/types";
 import { supabase } from "@/lib/supabase";
-import { getAuthToken } from "@/lib/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import { parseMentions, resolveMentions } from "@/lib/mentions";
 import * as XLSX from "xlsx";
 
@@ -25,12 +25,12 @@ function getStatus(task: Task): Task["status"] {
   return "active";
 }
 
-function getCurrentUserId(): string | null {
-  const token = getAuthToken();
-  return token?.id || null;
-}
 
 export function useTaskManager() {
+  const { user, isAdmin } = useAuth();
+  const authUserRef = useRef(user);
+  authUserRef.current = user;
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allCategories, setAllCategories] = useState<CustomCategory[]>(DEFAULT_CATEGORIES);
   const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
@@ -39,7 +39,10 @@ export function useTaskManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const currentUserId = getCurrentUserId();
+  const getCurrentUserId = useCallback(() => authUserRef.current?.id ?? null, []);
+  const getCurrentUsername = useCallback(() => authUserRef.current?.username, []);
+
+  const currentUserId = user?.id;
 
   // ─── Fetch all data from Supabase ───
   const fetchAllData = useCallback(async () => {
@@ -78,20 +81,19 @@ export function useTaskManager() {
         .from("attachments")
         .select("*");
 
-      // Fetch app_users for member name resolution
+      // Fetch user_roles for member name resolution
       const { data: appUsers } = await supabase
-        .from("app_users")
-        .select("id, username");
+        .from("user_roles")
+        .select("user_id, display_name");
 
       const userMap = new Map<string, string>();
-      (appUsers || []).forEach((u) => userMap.set(u.id, u.username));
+      (appUsers || []).forEach((u) => userMap.set(u.user_id, u.display_name));
 
       // Also build a username->id map for @mention resolution
       const usernameToIdMap = new Map<string, string>();
       (appUsers || []).forEach((u) => {
-        usernameToIdMap.set(u.username, u.id);
-        // Support case-insensitive lookup
-        usernameToIdMap.set(u.username.toLowerCase(), u.id);
+        usernameToIdMap.set(u.display_name, u.user_id);
+        usernameToIdMap.set(u.display_name.toLowerCase(), u.user_id);
       });
       setUserMap(usernameToIdMap);
       userMapRef.current = usernameToIdMap;
@@ -149,7 +151,7 @@ export function useTaskManager() {
       // Filter tasks: if user is admin, show all tasks
       // Otherwise, if user is logged in, only show tasks they're a member of
       // If no user or no project_members exist (legacy), show all tasks
-      const token = getAuthToken();
+      const token = authUserRef.current;
       const isAdmin = token?.role === "admin";
       const filteredTasks = isAdmin
         ? updatedTasks
@@ -299,7 +301,7 @@ export function useTaskManager() {
         timestamp: now,
         progress: data.progress,
         note: data.note || "创建任务",
-        username: getAuthToken()?.username,
+        username: getCurrentUsername(),
       }],
       attachments: [],
       sort_order: maxOrder + 1,
@@ -333,7 +335,7 @@ export function useTaskManager() {
       timestamp: now,
       progress: data.progress,
       note: data.note || "创建任务",
-      username: getAuthToken()?.username,
+      username: getCurrentUsername(),
     });
 
     // Create @mention notifications for the initial note
@@ -472,7 +474,7 @@ export function useTaskManager() {
         timestamp: new Date().toISOString(),
         progress: newProgress,
         note: noteText,
-        username: getAuthToken()?.username,
+        username: getCurrentUsername(),
       };
 
       setTasks((prev) =>
@@ -488,7 +490,7 @@ export function useTaskManager() {
         timestamp: entry.timestamp,
         progress: entry.progress,
         note: entry.note,
-        username: getAuthToken()?.username,
+        username: getCurrentUsername(),
       });
 
       // Create @mention notifications
@@ -522,7 +524,7 @@ export function useTaskManager() {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    const token = getAuthToken();
+    const token = authUserRef.current;
     const isAdmin = token?.role === "admin";
     const isOwner = token?.id && task.owner_id === token.id;
 
@@ -554,7 +556,7 @@ export function useTaskManager() {
         timestamp: now,
         progress: newProgress,
         note: completed ? "重新打开" : "标记完成",
-        username: getAuthToken()?.username,
+        username: getCurrentUsername(),
       }],
     };
     updated.status = getStatus(updated);
@@ -573,7 +575,7 @@ export function useTaskManager() {
       timestamp: now,
       progress: newProgress,
       note: completed ? "重新打开" : "标记完成",
-      username: getAuthToken()?.username,
+      username: getCurrentUsername(),
     });
   }, [tasks]);
 
@@ -594,7 +596,7 @@ export function useTaskManager() {
             timestamp: now,
             progress: task.progress,
             note: "项目已终止",
-            username: getAuthToken()?.username,
+            username: getCurrentUsername(),
           }],
         };
         result = updated;
@@ -613,7 +615,7 @@ export function useTaskManager() {
       timestamp: now,
       progress: (result as unknown as Task | undefined)?.progress ?? 0,
       note: "项目已终止",
-      username: getAuthToken()?.username,
+      username: getCurrentUsername(),
     });
 
     return result;
@@ -636,7 +638,7 @@ export function useTaskManager() {
             timestamp: now,
             progress: task.progress,
             note: "项目已恢复",
-            username: getAuthToken()?.username,
+            username: getCurrentUsername(),
           }],
         };
         restored.status = getStatus(restored);
@@ -659,7 +661,7 @@ export function useTaskManager() {
       timestamp: now,
       progress: task?.progress ?? 0,
       note: "项目已恢复",
-      username: getAuthToken()?.username,
+      username: getCurrentUsername(),
     });
 
     return result;
@@ -742,7 +744,7 @@ export function useTaskManager() {
       timestamp: new Date().toISOString(),
       progress: 0, // no progress change
       note: `上传了附件 ${file.name}`,
-      username: getAuthToken()?.username,
+      username: getCurrentUsername(),
     };
 
     setTasks((prev) =>
@@ -770,7 +772,7 @@ export function useTaskManager() {
       timestamp: entry.timestamp,
       progress: entry.progress,
       note: entry.note,
-      username: getAuthToken()?.username,
+      username: getCurrentUsername(),
     });
   }, []);
 
@@ -788,7 +790,7 @@ export function useTaskManager() {
       timestamp: new Date().toISOString(),
       progress: 0, // no progress change
       note: `删除了附件 ${attName}`,
-      username: getAuthToken()?.username,
+      username: getCurrentUsername(),
     };
 
     setTasks((prev) =>
@@ -809,7 +811,7 @@ export function useTaskManager() {
       timestamp: entry.timestamp,
       progress: entry.progress,
       note: entry.note,
-      username: getAuthToken()?.username,
+      username: getCurrentUsername(),
     });
   }, [tasks]);
 
@@ -998,7 +1000,7 @@ export function useTaskManager() {
     updateProjectMemberRole,
     followUpTasks,
     currentUserId,
-    isAdmin: getAuthToken()?.role === "admin",
+    isAdmin: isAdmin,
     userMap,
   };
 }

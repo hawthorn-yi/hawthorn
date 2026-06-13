@@ -1,15 +1,5 @@
-import { supabase } from "@/lib/supabase";
+﻿import { supabase } from "@/lib/supabase";
 
-// ─── Password hashing using Web Crypto API (SHA-256) ───
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return btoa(String.fromCharCode(...hashArray));
-}
-
-// ─── Types ───
 export interface AppUser {
   id: string;
   username: string;
@@ -19,202 +9,100 @@ export interface AppUser {
   last_login?: string;
 }
 
-// ─── Auth Token (simple: base64 encoded user.id:timestamp) ───
-const AUTH_KEY = "project_progress_auth";
+const AUTH_DOMAIN = "project-progress.local";
+function makeEmail(username: string): string { return `${username}@${AUTH_DOMAIN}`; }
 
-export function saveAuthToken(user: AppUser): void {
-  const token = {
-    userId: user.id,
-    username: user.username,
-    role: user.role,
-    timestamp: Date.now(),
-  };
-  localStorage.setItem(AUTH_KEY, JSON.stringify(token));
-}
-
-export function getAuthToken(): AppUser | null {
-  const raw = localStorage.getItem(AUTH_KEY);
-  if (!raw) return null;
+export async function getCurrentUserSession(): Promise<{ user: AppUser | null }> {
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  if (!session?.user) return { user: null };
+  const username = (session.user.user_metadata?.display_name as string) ||
+    (session.user.email?.split("@")[0] ?? "User");
+  let role: "admin" | "user" = "user";
+  let displayName = username;
+  let createdAt = session.user.created_at;
   try {
-    const token = JSON.parse(raw);
-    // Token expires after 30 days
-    if (Date.now() - token.timestamp > 30 * 24 * 60 * 60 * 1000) {
-      clearAuthToken();
-      return null;
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("*")
+      .eq("user_id", session.user.id)
+      .single();
+    if (roleData) {
+      role = roleData.role as "admin" | "user";
+      displayName = roleData.display_name || username;
+      createdAt = roleData.created_at || createdAt;
     }
-    return {
-      id: token.userId,
-      username: token.username,
-      role: token.role,
-      is_approved: true,
-      created_at: "",
-    };
-  } catch {
-    clearAuthToken();
-    return null;
-  }
+  } catch { /* user_roles table may not exist yet */ }
+  return { user: { id: session.user.id, username: displayName, role, is_approved: true, created_at: createdAt } };
 }
-
-export function clearAuthToken(): void {
-  localStorage.removeItem(AUTH_KEY);
-}
-
-// ─── API functions ───
 
 export async function loginUser(username: string, password: string): Promise<AppUser> {
-  const passwordHash = await hashPassword(password);
-
-  const { data, error } = await supabase
-    .from("app_users")
-    .select("*")
-    .eq("username", username)
-    .single();
-
-  if (error || !data) {
-    throw new Error("用户名或密码错误");
-  }
-
-  if (data.password_hash !== passwordHash) {
-    throw new Error("用户名或密码错误");
-  }
-
-  if (!data.is_approved) {
-    throw new Error("账户尚未通过审批，请联系管理员");
-  }
-
-  // Update last_login
-  await supabase
-    .from("app_users")
-    .update({ last_login: new Date().toISOString() })
-    .eq("id", data.id);
-
-  const user: AppUser = {
-    id: data.id,
-    username: data.username,
-    role: data.role,
-    is_approved: data.is_approved,
-    created_at: data.created_at,
-    last_login: new Date().toISOString(),
-  };
-
-  saveAuthToken(user);
+  const { error } = await supabase.auth.signInWithPassword({ email: makeEmail(username), password });
+  if (error) throw new Error("用户名或密码错误");
+  const { user } = await getCurrentUserSession();
+  if (!user) throw new Error("登录失败");
   return user;
 }
 
 export async function registerUser(username: string, password: string): Promise<AppUser> {
-  // Validate
   if (username.length < 3) throw new Error("用户名至少需要3个字符");
   if (password.length < 4) throw new Error("密码至少需要4个字符");
-
-  const passwordHash = await hashPassword(password);
-  const userId = crypto.randomUUID();
-
-  const { error } = await supabase.from("app_users").insert({
-    id: userId,
-    username,
-    password_hash: passwordHash,
-    role: "user",
-    is_approved: true, // Auto-approve for simplicity; admin can change later
-    created_at: new Date().toISOString(),
-  });
-
+  const { error } = await supabase.auth.signUp({ email: makeEmail(username), password, options: { data: { display_name: username } } });
   if (error) {
-    if (error.message?.includes("duplicate") || error.message?.includes("unique")) {
-      throw new Error("该用户名已被注册");
-    }
+    if (error.message?.toLowerCase().includes("already")) throw new Error("该用户名已被注册");
+  if (error.message?.includes("Database error")) throw new Error("系统初始化中，请管理员先在 Supabase Dashboard 的 SQL Editor 中执行 sql/migration_fix_rls.sql，然后重试。");
     throw new Error("注册失败: " + error.message);
   }
-
-  const user: AppUser = {
-    id: userId,
-    username,
-    role: "user",
-    is_approved: true,
-    created_at: new Date().toISOString(),
-  };
-
-  saveAuthToken(user);
+  await new Promise((r) => setTimeout(r, 1500));
+  const { user } = await getCurrentUserSession();
+  if (!user) {
+    const { error: siErr } = await supabase.auth.signInWithPassword({ email: makeEmail(username), password });
+    if (siErr) throw new Error("注册成功，但登录失败: " + siErr.message);
+    const retry = await getCurrentUserSession();
+    return retry.user ?? { id: crypto.randomUUID(), username, role: "user" as const, is_approved: true, created_at: new Date().toISOString() };
+  }
   return user;
 }
 
-// ─── Admin functions ───
+export async function logoutUser(): Promise<void> { await supabase.auth.signOut(); }
 
 export async function getAllUsers(): Promise<AppUser[]> {
-  const { data, error } = await supabase
-    .from("app_users")
-    .select("*")
-    .order("created_at", { ascending: false });
-
+  const { data: roles, error } = await supabase.from("user_roles").select("*").order("created_at", { ascending: false });
   if (error) throw new Error("获取用户列表失败: " + error.message);
-
-  return (data || []).map((u) => ({
-    id: u.id,
-    username: u.username,
-    role: u.role,
-    is_approved: u.is_approved,
-    created_at: u.created_at,
-    last_login: u.last_login,
-  }));
+  return (roles || []).map((r) => ({ id: r.user_id, username: r.display_name || r.user_id.substring(0, 8), role: r.role as "admin" | "user", is_approved: true, created_at: r.created_at, last_login: r.updated_at }));
 }
 
 export async function updateUserRole(userId: string, role: "admin" | "user"): Promise<void> {
-  const { error } = await supabase
-    .from("app_users")
-    .update({ role })
-    .eq("id", userId);
-
+  const { error } = await supabase.from("user_roles").update({ role }).eq("user_id", userId);
   if (error) throw new Error("更新用户权限失败: " + error.message);
 }
 
 export async function updateUserApproval(userId: string, isApproved: boolean): Promise<void> {
-  const { error } = await supabase
-    .from("app_users")
-    .update({ is_approved: isApproved })
-    .eq("id", userId);
-
-  if (error) throw new Error("更新用户审批状态失败: " + error.message);
+  if (isApproved) {
+    const { error: ie } = await supabase.from("user_roles").upsert({ user_id: userId, role: "user", display_name: "" }).eq("user_id", userId);
+    if (ie) throw new Error("启用用户失败: " + ie.message);
+  } else {
+    const { error: de } = await supabase.from("user_roles").delete().eq("user_id", userId);
+    if (de) throw new Error("禁用用户失败: " + de.message);
+  }
 }
 
 export async function deleteUser(userId: string): Promise<void> {
-  const { error } = await supabase
-    .from("app_users")
-    .delete()
-    .eq("id", userId);
-
+  const { error } = await supabase.from("user_roles").delete().eq("user_id", userId);
   if (error) throw new Error("删除用户失败: " + error.message);
 }
 
-export async function resetUserPassword(userId: string, newPassword: string): Promise<void> {
-  if (newPassword.length < 4) throw new Error("密码至少需要4个字符");
-
-  const newHash = await hashPassword(newPassword);
-  const { error } = await supabase
-    .from("app_users")
-    .update({ password_hash: newHash })
-    .eq("id", userId);
-
-  if (error) throw new Error("重置密码失败: " + error.message);
+export async function resetUserPassword(_userId: string, _newPassword: string): Promise<void> {
+  throw new Error("密码重置需要在 Supabase Dashboard 中操作，或让用户自助重置");
 }
 
-export async function changePassword(userId: string, oldPassword: string, newPassword: string): Promise<void> {
-  const { data } = await supabase
-    .from("app_users")
-    .select("password_hash")
-    .eq("id", userId)
-    .single();
-
-  if (!data) throw new Error("用户不存在");
-
-  const oldHash = await hashPassword(oldPassword);
-  if (data.password_hash !== oldHash) {
-    throw new Error("原密码不正确");
-  }
-
-  const newHash = await hashPassword(newPassword);
-  const { error } = await supabase
-    .from("app_users")
-    .update({ password_hash: newHash })
-    .eq("id", userId);
-
-  if (error) throw new Error("修改密码失败: " + error.message);
+export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
+  if (newPassword.length < 4) throw new Error("密码至少需要4个字符");
+  const { data: sd } = await supabase.auth.getSession();
+  const email = sd.session?.user?.email;
+  if (!email) throw new Error("请先登录");
+  const { error: siErr } = await supabase.auth.signInWithPassword({ email, password: oldPassword });
+  if (siErr) throw new Error("原密码不正确");
+  const { error: upErr } = await supabase.auth.updateUser({ password: newPassword });
+  if (upErr) throw new Error("修改密码失败: " + upErr.message);
 }

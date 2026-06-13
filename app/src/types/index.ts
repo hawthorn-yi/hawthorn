@@ -1,4 +1,4 @@
-export interface Attachment {
+﻿export interface Attachment {
   id: string;
   name: string;
   size: number;
@@ -52,6 +52,6 @@ export interface ProjectMember {
   task_id: string;
   user_id: string;
   role: "owner" | "member";
-  username?: string; // Joined from app_users
+  username?: string; // Joined from user_roles
   created_at?: string;
 }

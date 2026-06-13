@@ -56,17 +56,17 @@ export default function MemberSelector({
   useEffect(() => {
     const fetchUsers = async () => {
       const { data } = await supabase
-        .from("app_users")
-        .select("id, username, role, is_approved")
-        .order("username");
+        .from("user_roles")
+        .select("user_id, role, display_name")
+        .order("display_name");
 
       if (data) {
         setAllUsers(
           data.map((u: Record<string, unknown>) => ({
-            id: u.id as string,
-            username: u.username as string,
+            id: u.user_id as string,
+            username: u.display_name as string,
             role: u.role as "admin" | "user",
-            is_approved: u.is_approved as boolean,
+            is_approved: true,
             created_at: "",
           }))
         );

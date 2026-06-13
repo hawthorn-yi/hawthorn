@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { getAuthToken } from "@/lib/auth";
+
 
 export interface MyMentionReply {
   id: string;
@@ -47,7 +47,8 @@ export function useMyMentions() {
   const [groupedMentions, setGroupedMentions] = useState<MyMentionGroup[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const userId = getAuthToken()?.id;
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => { supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id || null)); }, [])
 
   const fetchMyMentions = useCallback(async () => {
     if (!userId) return;

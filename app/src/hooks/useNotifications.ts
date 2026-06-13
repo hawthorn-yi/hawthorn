@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { getAuthToken } from "@/lib/auth";
+
 
 export interface NotificationReply {
   id: string;
@@ -31,7 +31,8 @@ export function useNotifications() {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const userId = getAuthToken()?.id;
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => { supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id || null)); }, [])
 
   const fetchNotifications = useCallback(async () => {
     if (!userId) return;
@@ -182,8 +183,9 @@ export function useNotifications() {
   // Add reply to a notification
   const addReply = useCallback(
     async (notificationId: string, progressEntryId: string, taskId: string, content: string) => {
-      const fromUserId = getAuthToken()?.id;
-      const fromUsername = getAuthToken()?.username || "未知";
+      const fromUserId = userId;
+      const fromUsername = "用户";
+      // TODO: get username from session
       if (!fromUserId || !content.trim()) return;
 
       const replyId = crypto.randomUUID();

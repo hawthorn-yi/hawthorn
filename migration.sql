@@ -116,8 +116,8 @@ RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = ''
-AS $$
+SET search_path = 'public'
+AS $
   SELECT EXISTS (
     SELECT 1 FROM user_roles 
     WHERE user_id = auth.uid() AND role = 'admin'
@@ -271,8 +271,8 @@ CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = ''
-AS $$
+SET search_path = 'public'
+AS $
 BEGIN
   IF (SELECT COUNT(*) FROM user_roles) = 0 THEN
     INSERT INTO user_roles (user_id, role, display_name)

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @mention parsing utilities
  * Extracts @username patterns from text and resolves them to user IDs.
  * Supports English, Chinese, digits, underscores, and spaces in Chinese usernames.
@@ -40,7 +40,7 @@ export function parseMentions(text: string): ParsedMention[] {
 }
 
 /**
- * Build a case-insensitive username → userId map from app_users array.
+ * Build a case-insensitive username → userId map from user_roles array.
  */
 export function buildUserMap(
   users: { id: string; username: string }[]

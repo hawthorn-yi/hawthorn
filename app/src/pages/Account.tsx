@@ -3,7 +3,8 @@ import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import { ArrowLeft, User, Key, Shield, Save, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { changePassword } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
+
 import { toast, Toaster } from "sonner";
 import { Input } from "@/components/ui/input";
 
@@ -30,7 +31,13 @@ export default function Account() {
     }
     setSaving(true);
     try {
-      await changePassword(user.id, oldPassword, newPassword);
+      const { data: sd } = await supabase.auth.getSession();
+      const email = sd.session?.user?.email;
+      if (!email) { toast.error("请先登录"); return; }
+      const { error: siErr } = await supabase.auth.signInWithPassword({ email, password: oldPassword });
+      if (siErr) { toast.error("原密码不正确"); return; }
+      const { error: upErr } = await supabase.auth.updateUser({ password: newPassword });
+      if (upErr) { toast.error("修改密码失败: " + upErr.message); return; }
       toast.success("密码修改成功");
       setOldPassword("");
       setNewPassword("");

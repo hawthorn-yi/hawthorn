@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+﻿import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
@@ -31,7 +31,7 @@ import { useTaskManager } from "@/hooks/useTaskManager";
 import { useDailyDigest } from "@/hooks/useDailyDigest";
 import { useNotifications } from "@/hooks/useNotifications";
 import { supabase } from "@/lib/supabase";
-import { getAuthToken } from "@/lib/auth";
+// getAuthToken replaced by useAuth in AuthContext
 import Layout from "@/components/Layout";
 import MemberSelector from "@/components/MemberSelector";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1187,7 +1187,7 @@ export default function Dashboard() {
                           onDeadlineClick={openInlineDeadline}
                           onNameClick={handleNameClick}
                           isAdmin={isAdmin}
-                          currentUserId={currentUserId}
+                          currentUserId={currentUserId ?? null}
                           isHighlighted={highlightedTaskId === task.id}
                         />
                       );
@@ -1914,7 +1914,7 @@ export default function Dashboard() {
                             <p className="text-xs text-[#64748B] leading-relaxed">{entry.note}</p>
                           )}
                           {/* Delete button - only creator or admin */}
-                          {(isAdmin || (entry.username && entry.username === getAuthToken()?.username)) && (
+                          {(isAdmin || (entry.username && entry.username === null)) && (
                           <div className="flex justify-end mt-2">
                             <AlertDialog open={deleteEntryId === entry.id} onOpenChange={(open) => !open && setDeleteEntryId(null)}>
                               <AlertDialogTrigger asChild>
