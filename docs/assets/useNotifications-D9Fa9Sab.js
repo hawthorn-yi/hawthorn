@@ -1,4 +1,4 @@
-import{r}from"./react-vendor-BKs11Bab.js";import{s}from"./index-Bnf1pS_T.js";function R(){const[g,p]=r.useState([]),[U,b]=r.useState(!0),[C,y]=r.useState(0),[a,S]=r.useState(null);r.useEffect(()=>{s.auth.getSession().then(({data:t})=>S(t.session?.user?.id||null))},[]);const _=r.useCallback(async()=>{if(a)try{const{data:t,error:i}=await s.from("notifications").select(`
+import{r}from"./react-vendor-BKs11Bab.js";import{s}from"./index-CddljOtU.js";function R(){const[g,p]=r.useState([]),[U,b]=r.useState(!0),[C,y]=r.useState(0),[a,S]=r.useState(null);r.useEffect(()=>{s.auth.getSession().then(({data:t})=>S(t.session?.user?.id||null))},[]);const _=r.useCallback(async()=>{if(a)try{const{data:t,error:i}=await s.from("notifications").select(`
           id,
           from_user_id,
           to_user_id,

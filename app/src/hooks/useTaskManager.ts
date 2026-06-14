@@ -99,7 +99,7 @@ export function useTaskManager() {
       try {
         const { data: appUsersLegacy } = await supabase
           .from("app_users")
-          .select("id, display_name");
+          .select("id, display_name, username");
         if (appUsersLegacy && appUsersLegacy.length > 0) {
           fallbackUserMap = new Map();
           appUsersLegacy.forEach((u) => {
@@ -152,6 +152,16 @@ export function useTaskManager() {
                 break;
               }
             }
+          }
+        }
+        // If owner username still not found, try using the task's owner_id as a fallback lookup
+        if (!username && m.role === "owner" && rawTasks) {
+          const relatedTask = rawTasks.find((t) => t.id === m.task_id);
+          if (relatedTask?.owner_id && relatedTask.owner_id !== m.user_id) {
+            username = userMap.get(relatedTask.owner_id)
+              || usernameMap.get(relatedTask.owner_id.toLowerCase())
+              || fallbackUserMap?.get(relatedTask.owner_id)
+              || fallbackUserMap?.get(relatedTask.owner_id.toLowerCase());
           }
         }
         if (!username) {
