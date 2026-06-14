@@ -30,6 +30,7 @@ import type { Task, FilterType, ProjectMember } from "@/types";
 import { useTaskManager } from "@/hooks/useTaskManager";
 import { useDailyDigest } from "@/hooks/useDailyDigest";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useMyMentions } from "@/hooks/useMyMentions";
 import { supabase } from "@/lib/supabase";
 // getAuthToken replaced by useAuth in AuthContext
 import Layout from "@/components/Layout";
@@ -366,6 +367,7 @@ export default function Dashboard() {
   } = useTaskManager();
   const digest = useDailyDigest();
   const { unreadCount: mentionCount } = useNotifications();
+  const { unrepliedCount: myMentionCount } = useMyMentions();
 
   // DnD sensors
   const sensors = useSensors(
@@ -954,6 +956,7 @@ export default function Dashboard() {
       onImport={handleImport}
       followUpCount={followUpTasks().length}
       mentionCount={mentionCount}
+      myMentionCount={myMentionCount}
     >
       {/* Hidden file input for import */}
       <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} />
@@ -1001,7 +1004,7 @@ export default function Dashboard() {
 
           <p className="text-xs text-[#94A3B8] uppercase tracking-widest mt-8 mb-3 font-medium">操作</p>
           <button onClick={() => setShowCategoryManageDialog(true)} className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm text-[#3B82F6] hover:bg-[#EFF6FF] transition-colors cursor-pointer">
-            <SlidersHorizontal className="w-4 h-4" /> 管理分类颜色
+            <SlidersHorizontal className="w-4 h-4" /> 管理分类
           </button>
           <button onClick={handleExport} className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#334155] transition-colors cursor-pointer">
             <Download className="w-4 h-4" /> 导出 JSON
@@ -1720,7 +1723,7 @@ export default function Dashboard() {
       <Dialog open={showCategoryManageDialog} onOpenChange={setShowCategoryManageDialog}>
         <DialogContent className="max-w-[500px] w-[90vw] max-h-[75vh] overflow-hidden p-6 bg-white rounded-2xl shadow-[0_16px_32px_rgba(0,0,0,0.15)] border-0 gap-0 flex flex-col">
           <DialogHeader className="mb-4">
-            <DialogTitle className="text-xl font-semibold text-[#1E293B]">管理分类颜色</DialogTitle>
+            <DialogTitle className="text-xl font-semibold text-[#1E293B]">管理分类</DialogTitle>
           </DialogHeader>
           <p className="text-xs text-[#94A3B8] mb-4 -mt-2">点击色块调整标签颜色，更改实时生效</p>
           <div className="max-h-[380px] overflow-y-auto flex-1 -mx-2 px-2">
