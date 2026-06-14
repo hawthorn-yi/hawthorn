@@ -423,6 +423,13 @@ export default function Dashboard() {
   const [userFilterId, setUserFilterId] = useState<string>("");
   const [allUsers, setAllUsers] = useState<Array<{ id: string; username: string; role: string }>>([]);
 
+  // Build a lookup: selected user's id → their username (for matching across UUID systems)
+  const selectedUserUsername = useMemo(() => {
+    if (!userFilterId) return null;
+    const found = allUsers.find((u) => u.id === userFilterId);
+    return found?.username || null;
+  }, [userFilterId, allUsers]);
+
   // Category delete confirmation
   const [deleteCategoryId, setDeleteCategoryId] = useState<string>("");
   const [deleteCategoryTaskCount, setDeleteCategoryTaskCount] = useState(0);
@@ -540,10 +547,10 @@ export default function Dashboard() {
   const stats = useMemo(() => {
     let filtered = [...tasks];
     if (categoryFilter) filtered = filtered.filter((t) => t.category === categoryFilter);
-    if (userFilterId) {
+    if (selectedUserUsername) {
       filtered = filtered.filter((t) => {
-        const memberUserIds = projectMembers.filter((m) => m.task_id === t.id).map((m) => m.user_id);
-        return memberUserIds.includes(userFilterId);
+        const memberNames = projectMembers.filter((m) => m.task_id === t.id).map((m) => m.username);
+        return memberNames.includes(selectedUserUsername);
       });
     }
     const total = filtered.length;
@@ -551,7 +558,7 @@ export default function Dashboard() {
     const completed = filtered.filter((t) => t.status === "completed").length;
     const overdueCount = filtered.filter((t) => t.status === "overdue").length;
     return { total, inProgress, completed, overdue: overdueCount };
-  }, [tasks, categoryFilter, userFilterId, projectMembers]);
+  }, [tasks, categoryFilter, selectedUserUsername, projectMembers]);
 
   const digestCounts = useMemo(() => {
     const todayStr = getToday();
@@ -609,13 +616,13 @@ export default function Dashboard() {
     if (categoryFilter) {
       result = result.filter((t) => t.category === categoryFilter);
     }
-    // User filter (admin only - filter tasks by selected user)
-    if (userFilterId) {
+    // User filter (admin only - filter tasks by selected user via username matching)
+    if (selectedUserUsername) {
       result = result.filter((t) => {
-        const memberUserIds = projectMembers
+        const memberNames = projectMembers
           .filter((m) => m.task_id === t.id)
-          .map((m) => m.user_id);
-        return memberUserIds.includes(userFilterId);
+          .map((m) => m.username);
+        return memberNames.includes(selectedUserUsername);
       });
     }
     switch (sortBy) {
@@ -917,10 +924,10 @@ export default function Dashboard() {
   const filterCounts = useMemo(() => {
     let filtered = [...tasks];
     if (categoryFilter) filtered = filtered.filter((t) => t.category === categoryFilter);
-    if (userFilterId) {
+    if (selectedUserUsername) {
       filtered = filtered.filter((t) => {
-        const memberUserIds = projectMembers.filter((m) => m.task_id === t.id).map((m) => m.user_id);
-        return memberUserIds.includes(userFilterId);
+        const memberNames = projectMembers.filter((m) => m.task_id === t.id).map((m) => m.username);
+        return memberNames.includes(selectedUserUsername);
       });
     }
     return {
@@ -929,7 +936,7 @@ export default function Dashboard() {
       completed: filtered.filter((t) => t.status === "completed").length,
       overdue: filtered.filter((t) => t.status === "overdue").length,
     };
-  }, [tasks, categoryFilter, userFilterId, projectMembers]);
+  }, [tasks, categoryFilter, selectedUserUsername, projectMembers]);
 
   if (loading) {
     return (
