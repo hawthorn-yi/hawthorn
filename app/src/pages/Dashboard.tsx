@@ -587,10 +587,20 @@ export default function Dashboard() {
   const filteredTasks = useMemo(() => {
     let result = [...tasks];
     if (!showTerminated) result = result.filter((t) => t.status !== "terminated");
-    // Always exclude completed tasks from main list (they go to collapsed section)
-    result = result.filter((t) => t.status !== "completed");
-    if (filter === "in-progress") result = result.filter((t) => t.status === "active");
-    else if (filter === "overdue") result = result.filter((t) => t.status === "overdue");
+    // Apply status filter
+    if (filter === "in-progress") {
+      // "进行中": only active (not overdue, not completed)
+      result = result.filter((t) => t.status === "active");
+    } else if (filter === "overdue") {
+      // "已逾期": only overdue
+      result = result.filter((t) => t.status === "overdue");
+    } else if (filter === "completed") {
+      // "已完成": only completed
+      result = result.filter((t) => t.status === "completed");
+    } else {
+      // "全部": active + overdue (completed shown in collapsed section, terminated toggled)
+      result = result.filter((t) => t.status !== "completed");
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((t) => t.name.toLowerCase().includes(q));
@@ -914,7 +924,7 @@ export default function Dashboard() {
       });
     }
     return {
-      all: filtered.length,
+      all: filtered.filter((t) => t.status !== "completed" && t.status !== "terminated").length,
       "in-progress": filtered.filter((t) => t.status === "active").length,
       completed: filtered.filter((t) => t.status === "completed").length,
       overdue: filtered.filter((t) => t.status === "overdue").length,
@@ -1198,8 +1208,8 @@ export default function Dashboard() {
                   )}
                 </AnimatePresence>
 
-                {/* Completed Projects */}
-                {completedTasks.length > 0 && (
+                {/* Completed Projects - hide when filtering by completed (already shown in main list) */}
+                {completedTasks.length > 0 && filter !== "completed" && (
                   <div className="mt-4">
                     <button onClick={() => setShowCompleted(!showCompleted)}
                       className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] text-sm text-[#059669] hover:bg-[#D1FAE5] hover:border-[#6EE7B7] transition-all duration-200 cursor-pointer w-full">
