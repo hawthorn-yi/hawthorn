@@ -48,10 +48,41 @@ export function useMyMentions() {
   const [loading, setLoading] = useState(true);
 
   const [userId, setUserId] = useState<string | null>(null);
-  useEffect(() => { supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id || null)); }, [])
+  // Resolve effective user ID for querying notifications (may use legacy app_users.id)
+  const [effectiveUserId, setEffectiveUserId] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      const authUid = data.session?.user?.id || null;
+      setUserId(authUid);
+      if (!authUid) return;
+      // Check user_roles first, then app_users
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("user_id", authUid)
+        .maybeSingle();
+      if (userRole) {
+        setEffectiveUserId(authUid);
+        return;
+      }
+      const userEmail = data.session?.user?.email || "";
+      const userName = data.session?.user?.user_metadata?.display_name || "";
+      const { data: appUser } = await supabase
+        .from("app_users")
+        .select("id, username")
+        .or(`username.eq.${userEmail.split("@")[0]},username.eq.${userName}`)
+        .maybeSingle();
+      if (appUser) {
+        setEffectiveUserId((appUser as Record<string, unknown>).id as string);
+      } else {
+        setEffectiveUserId(authUid);
+      }
+    });
+  }, [])
 
   const fetchMyMentions = useCallback(async () => {
-    if (!userId) return;
+    const queryUserId = effectiveUserId || userId;
+    if (!queryUserId) return;
     try {
       const { data, error } = await supabase
         .from("notifications")
@@ -70,7 +101,7 @@ export function useMyMentions() {
           to_user:to_user_id ( username ),
           task:task_id ( name )
         `)
-        .eq("from_user_id", userId)
+        .eq("from_user_id", queryUserId)
         .order("created_at", { ascending: false })
         .limit(100);
 
@@ -177,7 +208,7 @@ export function useMyMentions() {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, effectiveUserId]);
 
   useEffect(() => {
     fetchMyMentions();
@@ -185,7 +216,7 @@ export function useMyMentions() {
 
   // Realtime subscription for new replies
   useEffect(() => {
-    if (!userId) return;
+    if (!userId && !effectiveUserId) return;
 
     const channel = supabase
       .channel("my-mentions-realtime")

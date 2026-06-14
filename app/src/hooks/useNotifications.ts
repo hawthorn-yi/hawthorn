@@ -32,10 +32,47 @@ export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const [userId, setUserId] = useState<string | null>(null);
-  useEffect(() => { supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id || null)); }, [])
+  // Resolve the effective user ID for querying notifications table
+  // notifications table may use legacy app_users.id UUIDs, not auth.uid()
+  const [effectiveUserId, setEffectiveUserId] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      const authUid = data.session?.user?.id || null;
+      setUserId(authUid);
+      if (!authUid) return;
+      // Try to find the corresponding app_users record for this auth user
+      // First check user_roles (new system), then fall back to app_users (legacy)
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("user_id", authUid)
+        .maybeSingle();
+      if (userRole) {
+        // auth.uid() matches user_roles.user_id — use it directly
+        setEffectiveUserId(authUid);
+        return;
+      }
+      // Try to find matching record in app_users by display_name/username matching
+      const userEmail = data.session?.user?.email || "";
+      const userName = data.session?.user?.user_metadata?.display_name || "";
+      // Search app_users for a matching user
+      const { data: appUser } = await supabase
+        .from("app_users")
+        .select("id, username")
+        .or(`username.eq.${userEmail.split("@")[0]},username.eq.${userName}`)
+        .maybeSingle();
+      if (appUser) {
+        setEffectiveUserId((appUser as Record<string, unknown>).id as string);
+      } else {
+        // Fall back to auth.uid()
+        setEffectiveUserId(authUid);
+      }
+    });
+  }, [])
 
   const fetchNotifications = useCallback(async () => {
-    if (!userId) return;
+    const queryUserId = effectiveUserId || userId;
+    if (!queryUserId) return;
     try {
       const { data, error } = await supabase
         .from("notifications")
@@ -53,7 +90,7 @@ export function useNotifications() {
           from_user:from_user_id ( username ),
           task:task_id ( name )
         `)
-        .eq("to_user_id", userId)
+        .eq("to_user_id", queryUserId)
         .order("created_at", { ascending: false })
         .limit(100);
 
@@ -121,7 +158,7 @@ export function useNotifications() {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, effectiveUserId]);
 
   // Initial fetch
   useEffect(() => {
@@ -130,7 +167,8 @@ export function useNotifications() {
 
   // Realtime subscription for new notifications
   useEffect(() => {
-    if (!userId) return;
+    const queryUserId = effectiveUserId || userId;
+    if (!queryUserId) return;
 
     const channel = supabase
       .channel("notifications-realtime")
@@ -140,7 +178,7 @@ export function useNotifications() {
           event: "INSERT",
           schema: "public",
           table: "notifications",
-          filter: `to_user_id=eq.${userId}`,
+          filter: `to_user_id=eq.${queryUserId}`,
         },
         () => {
           fetchNotifications();
@@ -151,7 +189,7 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, fetchNotifications]);
+  }, [userId, effectiveUserId, fetchNotifications]);
 
   // Mark single notification as read
   const markAsRead = useCallback(
@@ -170,15 +208,16 @@ export function useNotifications() {
 
   // Mark all as read
   const markAllAsRead = useCallback(async () => {
-    if (!userId) return;
+    const queryUserId = effectiveUserId || userId;
+    if (!queryUserId) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnreadCount(0);
     await supabase
       .from("notifications")
       .update({ is_read: true })
-      .eq("to_user_id", userId)
+      .eq("to_user_id", queryUserId)
       .eq("is_read", false);
-  }, [userId]);
+  }, [userId, effectiveUserId]);
 
   // Add reply to a notification
   const addReply = useCallback(
