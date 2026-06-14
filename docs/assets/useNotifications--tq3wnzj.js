@@ -1,0 +1,20 @@
+import{r as d}from"./react-vendor-BKs11Bab.js";import{s as i}from"./index-CLFmvz2M.js";function D(){const[g,p]=d.useState([]),[U,b]=d.useState(!0),[S,y]=d.useState(0),[c,q]=d.useState([]);d.useEffect(()=>{i.auth.getSession().then(async({data:t})=>{const r=t.session?.user?.id||null;if(!r)return;const s=[r];try{const{data:n}=await i.from("user_roles").select("display_name").eq("user_id",r).maybeSingle();if(n){const e=n.display_name;if(e){const{data:o}=await i.from("app_users").select("id").eq("username",e).maybeSingle();if(o){const a=o.id;a&&a!==r&&s.push(a)}}}const u=t.session?.user?.email?.split("@")[0]||"";if(u&&s.length<2){const{data:e}=await i.from("app_users").select("id").eq("username",u).maybeSingle();if(e){const o=e.id;o&&!s.includes(o)&&s.push(o)}}}catch{}q(s)})},[]);const m=d.useCallback(async()=>{if(c.length!==0)try{const{data:t,error:r}=await i.from("notifications").select(`
+          id,
+          from_user_id,
+          to_user_id,
+          task_id,
+          progress_entry_id,
+          note,
+          mentioned_username,
+          is_read,
+          reply_count,
+          created_at,
+          from_user:from_user_id ( username ),
+          task:task_id ( name )
+        `).in("to_user_id",c).order("created_at",{ascending:!1}).limit(100);if(r){console.error("Failed to fetch notifications:",r);return}const s=(t||[]).map(e=>e.id);let n=new Map;if(s.length>0){const{data:e}=await i.from("mention_replies").select(`
+            id,
+            notification_id,
+            content,
+            created_at,
+            from_user:from_user_id ( username )
+          `).in("notification_id",s).order("created_at",{ascending:!0});for(const o of e||[]){const a=o,h=a.from_user,_=a.notification_id;n.has(_)||n.set(_,[]),n.get(_).push({id:a.id,notification_id:_,from_username:h?.username||"未知",content:a.content,created_at:a.created_at})}}const u=(t||[]).map(e=>{const o=e.from_user,a=e.task;return{id:e.id,from_user_id:e.from_user_id,from_username:o?.username||e.mentioned_username,to_user_id:e.to_user_id,task_id:e.task_id,task_name:a?.name||"未知任务",progress_entry_id:e.progress_entry_id,note:e.note,mentioned_username:e.mentioned_username,is_read:e.is_read||!1,reply_count:e.reply_count||0,created_at:e.created_at,replies:n.get(e.id)||[]}});p(u),y(u.filter(e=>!e.is_read).length)}catch(t){console.error("Error fetching notifications:",t)}finally{b(!1)}},[c]);d.useEffect(()=>{m()},[m]),d.useEffect(()=>{if(c.length===0)return;const t=c.map(r=>i.channel(`notifications-realtime-${r}`).on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications",filter:`to_user_id=eq.${r}`},()=>{m()}).subscribe());return()=>{t.forEach(r=>i.removeChannel(r))}},[c,m]);const C=d.useCallback(async t=>{p(r=>r.map(s=>s.id===t?{...s,is_read:!0}:s)),y(r=>Math.max(0,r-1)),await i.from("notifications").update({is_read:!0}).eq("id",t)},[]),E=d.useCallback(async()=>{c.length!==0&&(p(t=>t.map(r=>({...r,is_read:!0}))),y(0),await i.from("notifications").update({is_read:!0}).in("to_user_id",c).eq("is_read",!1))},[c]),I=d.useCallback(async(t,r,s,n)=>{const u=c.length>0?c[0]:null,e="用户";if(!u||!n.trim())return;const o=crypto.randomUUID(),a=new Date().toISOString();p(f=>f.map(l=>l.id!==t?l:{...l,is_read:!0,reply_count:l.reply_count+1,replies:[...l.replies,{id:o,notification_id:t,from_username:e,content:n.trim(),created_at:a}]})),y(f=>Math.max(0,f-1)),await i.from("mention_replies").insert({id:o,notification_id:t,progress_entry_id:r,from_user_id:u,content:n.trim()});const{data:h}=await i.from("notifications").select("reply_count").eq("id",t).single(),_=h?.reply_count||0;await i.from("notifications").update({reply_count:_+1,is_read:!0}).eq("id",t);const N=crypto.randomUUID(),k=g.find(f=>f.id===t),w=k?.from_username||"用户";if(!k||!w)return;const x=`${e} 回复了 @${w}: ${n.trim()}`;await i.from("progress_entries").insert({id:N,task_id:s,timestamp:a,progress:0,note:x,username:e})},[g]);return{notifications:g,loading:U,unreadCount:S,markAsRead:C,markAllAsRead:E,addReply:I,refresh:m}}export{D as u};
