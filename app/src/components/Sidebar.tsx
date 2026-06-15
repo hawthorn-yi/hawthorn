@@ -27,6 +27,7 @@ interface SidebarProps {
   isAdmin?: boolean;
   followUpCount?: number;
   mentionCount?: number;
+  myMentionCount?: number;
 }
 
 const navItems = [
@@ -41,7 +42,7 @@ const adminNavItems = [
   { path: "/settings", label: "系统设置", icon: Settings },
 ];
 
-export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose, isMobile, isAdmin, followUpCount = 0, mentionCount = 0 }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose, isMobile, isAdmin, followUpCount = 0, mentionCount = 0, myMentionCount = 0 }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -260,7 +261,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                 : "text-[#94A3B8] hover:bg-[#1E293B] hover:text-[#FCD34D]"
               }
             `}
-            title={collapsed ? "我@别人的" : undefined}
+            title={collapsed ? `我@别人的 (${myMentionCount})` : undefined}
           >
             <Forward className={`w-5 h-5 shrink-0 ${location.pathname === "/my-mentions" ? "text-[#FBBF24]" : ""}`} />
             {(!collapsed || isMobile) && (
@@ -268,7 +269,12 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                 <span className={`text-sm font-medium whitespace-nowrap ${location.pathname === "/my-mentions" ? "font-semibold" : ""}`}>
                   我@别人的
                 </span>
-                {location.pathname === "/my-mentions" && (
+                {myMentionCount > 0 && (
+                  <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-[#F59E0B] text-white text-[0.625rem] font-bold">
+                    {myMentionCount}
+                  </span>
+                )}
+                {myMentionCount === 0 && location.pathname === "/my-mentions" && (
                   <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
                 )}
               </>

@@ -228,12 +228,33 @@ export function useMyMentions() {
     fetchMyMentions();
   }, [fetchMyMentions]);
 
-  // Realtime subscription for new replies
+  // Realtime subscription for new notifications (I @ others) and new replies
   useEffect(() => {
     if (userIds.length === 0) return;
 
-    const channel = supabase
-      .channel("my-mentions-realtime")
+    // Subscribe to new notifications where current user is the sender (I @ others)
+    const notifChannels = userIds.map((uid) => {
+      const channel = supabase
+        .channel(`my-mentions-notif-${uid}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `from_user_id=eq.${uid}`,
+          },
+          () => {
+            fetchMyMentions();
+          }
+        )
+        .subscribe();
+      return channel;
+    });
+
+    // Subscribe to new replies on mention_replies
+    const replyChannel = supabase
+      .channel("my-mentions-replies")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "mention_replies" },
@@ -244,7 +265,8 @@ export function useMyMentions() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      notifChannels.forEach((ch) => supabase.removeChannel(ch));
+      supabase.removeChannel(replyChannel);
     };
   }, [userIds, fetchMyMentions]);
 

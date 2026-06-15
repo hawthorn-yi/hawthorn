@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
-  Search,
   Bell,
   Menu,
   Download,
@@ -98,6 +97,7 @@ export default function Layout({
         isAdmin={isAdmin}
         followUpCount={followUpCount}
         mentionCount={mentionCount}
+        myMentionCount={myMentionCount}
       />
 
       {/* Main Content Area */}

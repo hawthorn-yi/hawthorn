@@ -186,12 +186,12 @@ export function useNotifications() {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // Realtime subscription for new notifications
+  // Realtime subscription for new notifications and replies
   useEffect(() => {
     if (userIds.length === 0) return;
 
-    // Subscribe for each possible user ID
-    const channels = userIds.map((uid) => {
+    // Subscribe for each possible user ID (new @mentions to me)
+    const notifChannels = userIds.map((uid) => {
       const channel = supabase
         .channel(`notifications-realtime-${uid}`)
         .on(
@@ -210,8 +210,21 @@ export function useNotifications() {
       return channel;
     });
 
+    // Subscribe to new replies on mention_replies (someone replied to a thread I'm in)
+    const replyChannel = supabase
+      .channel("notifications-replies-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "mention_replies" },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
     return () => {
-      channels.forEach((ch) => supabase.removeChannel(ch));
+      notifChannels.forEach((ch) => supabase.removeChannel(ch));
+      supabase.removeChannel(replyChannel);
     };
   }, [userIds, fetchNotifications]);
 
