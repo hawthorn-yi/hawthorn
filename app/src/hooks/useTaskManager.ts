@@ -87,36 +87,13 @@ export function useTaskManager() {
         .select("user_id, display_name");
 
       const userMap = new Map<string, string>();
-      // Also build normalized display_name → display_name map for legacy data compatibility
       const usernameMap = new Map<string, string>();
       (appUsers || []).forEach((u) => {
         userMap.set(u.user_id, u.display_name);
         usernameMap.set(u.display_name.toLowerCase(), u.display_name);
       });
 
-      // Also try fetching app_users table as fallback (some systems use this for legacy accounts)
-      let fallbackUserMap: Map<string, string> | null = null;
-      try {
-        const { data: appUsersLegacy } = await supabase
-          .from("app_users")
-          .select("id, display_name, username");
-        if (appUsersLegacy && appUsersLegacy.length > 0) {
-          fallbackUserMap = new Map();
-          appUsersLegacy.forEach((u) => {
-            // Try both "id" field and common user_id patterns
-            const uid = (u as Record<string, unknown>).id as string || (u as Record<string, unknown>).user_id as string;
-            const dn = (u as Record<string, unknown>).display_name as string || (u as Record<string, unknown>).username as string;
-            if (uid && dn && fallbackUserMap) {
-              fallbackUserMap.set(uid, dn);
-              fallbackUserMap.set(dn.toLowerCase(), dn);
-            }
-          });
-        }
-      } catch (e) {
-        // app_users table may not exist or be inaccessible - ignore
-      }
-
-      // Also build a username->id map for @mention resolution
+      // Build a username->id map for @mention resolution
       const usernameToIdMap = new Map<string, string>();
       (appUsers || []).forEach((u) => {
         usernameToIdMap.set(u.display_name, u.user_id);
@@ -127,30 +104,16 @@ export function useTaskManager() {
 
       // Enrich project members with usernames
       const enrichedMembers: ProjectMember[] = (members || []).map((m) => {
-        let username = userMap.get(m.user_id); // Try UUID lookup first
+        let username = userMap.get(m.user_id);
         if (!username) {
-          // user_id might be a username itself (legacy data: "kevin", "肖伍秋", "001")
           username = usernameMap.get(m.user_id.toLowerCase());
         }
-        // Try fallback app_users table
-        if (!username && fallbackUserMap) {
-          username = fallbackUserMap.get(m.user_id) || fallbackUserMap.get(m.user_id.toLowerCase());
-        }
         if (!username) {
-          // user_id might be a partial/abbreviated username match
+          // Try fuzzy match as last resort
           for (const [key, val] of usernameMap) {
             if (key.includes(m.user_id.toLowerCase()) || m.user_id.toLowerCase().includes(key)) {
               username = val;
               break;
-            }
-          }
-          // Also check fallbackUserMap for partial match
-          if (!username && fallbackUserMap) {
-            for (const [key, val] of fallbackUserMap) {
-              if (key.includes(m.user_id.toLowerCase()) || m.user_id.toLowerCase().includes(key)) {
-                username = val;
-                break;
-              }
             }
           }
         }
@@ -159,13 +122,11 @@ export function useTaskManager() {
           const relatedTask = rawTasks.find((t) => t.id === m.task_id);
           if (relatedTask?.owner_id && relatedTask.owner_id !== m.user_id) {
             username = userMap.get(relatedTask.owner_id)
-              || usernameMap.get(relatedTask.owner_id.toLowerCase())
-              || fallbackUserMap?.get(relatedTask.owner_id)
-              || fallbackUserMap?.get(relatedTask.owner_id.toLowerCase());
+              || usernameMap.get(relatedTask.owner_id.toLowerCase());
           }
         }
         if (!username) {
-          // Last resort: short IDs show as-is, unknown UUIDs show "未知用户"
+          // Last resort: unknown UUIDs show "未知用户"
           if (m.user_id.length > 30) {
             username = "未知用户";
           } else {
@@ -195,7 +156,7 @@ export function useTaskManager() {
         sort_order: t.sort_order ?? i,
         owner_id: t.owner_id,
         assignee_id: t.assignee_id,
-        assignee_username: t.assignee_username || userMap.get(t.assignee_id || "") || usernameMap.get((t.assignee_id || "").toLowerCase()) || (fallbackUserMap?.get(t.assignee_id || "")) || (fallbackUserMap?.get((t.assignee_id || "").toLowerCase())) || undefined,
+        assignee_username: t.assignee_username || userMap.get(t.assignee_id || "") || usernameMap.get((t.assignee_id || "").toLowerCase()) || undefined,
         history: (entries || [])
           .filter((e) => e.task_id === t.id)
           .map((e) => ({

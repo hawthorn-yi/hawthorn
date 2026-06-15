@@ -529,10 +529,16 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchUsers = async () => {
       const { data } = await supabase
-        .from("app_users")
-        .select("id, username, role")
-        .order("username");
-      if (data) setAllUsers(data as Array<{ id: string; username: string; role: string }>);
+        .from("user_roles")
+        .select("user_id, display_name")
+        .order("display_name");
+      if (data) {
+        setAllUsers(data.map((u: Record<string, unknown>) => ({
+          id: u.user_id as string,
+          username: u.display_name as string,
+          role: "user",
+        })));
+      }
     };
     fetchUsers();
   }, []);
