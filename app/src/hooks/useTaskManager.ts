@@ -166,6 +166,9 @@ export function useTaskManager() {
             progress: e.progress,
             note: e.note,
             username: e.username,
+            reply_to: e.reply_to,
+            reply_note: e.reply_note,
+            reply_username: e.reply_username,
           })),
         attachments: (atts || [])
           .filter((a) => a.task_id === t.id)

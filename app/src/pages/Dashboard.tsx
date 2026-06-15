@@ -172,7 +172,7 @@ function DeleteModal({ task, open, onClose, onConfirm }: {
 }
 
 /* ─────────────── Sortable Task Card Wrapper ─────────────── */
-function SortableTaskCard({ task, index, allCategories, projectMembers, onToggleComplete, onEdit, onDelete, onHistory, onDeadlineClick, onNameClick, isAdmin, currentUserId, isHighlighted }: {
+function SortableTaskCard({ task, index, allCategories, projectMembers, onToggleComplete, onEdit, onDelete, onHistory, onDeadlineClick, onNameClick, onRestore, isAdmin, currentUserId, isHighlighted }: {
   task: Task;
   index: number;
   allCategories: { id: string; name: string; color: string }[];
@@ -183,6 +183,7 @@ function SortableTaskCard({ task, index, allCategories, projectMembers, onToggle
   onHistory: (task: Task) => void;
   onDeadlineClick: (task: Task) => void;
   onNameClick: (task: Task) => void;
+  onRestore: (task: Task) => void;
   isAdmin: boolean;
   currentUserId: string | null;
   isHighlighted?: boolean;
@@ -331,6 +332,11 @@ function SortableTaskCard({ task, index, allCategories, projectMembers, onToggle
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {terminated && (
+              <button onClick={() => onRestore(task)} className="w-8 h-8 flex items-center justify-center rounded-md text-[#F59E0B] hover:text-[#D97706] hover:bg-[#FFFBEB] transition-all duration-150 cursor-pointer" title="恢复项目">
+                <Undo2 className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button onClick={() => onEdit(task)} className="w-8 h-8 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#3B82F6] hover:bg-[#EFF6FF] transition-all duration-150 cursor-pointer" title="编辑">
               <Pencil className="w-3.5 h-3.5" />
             </button>
@@ -1249,6 +1255,7 @@ export default function Dashboard() {
                           onHistory={(t) => navigate(`/history?taskId=${t.id}`)}
                           onDeadlineClick={openInlineDeadline}
                           onNameClick={handleNameClick}
+                          onRestore={handleRestore}
                           isAdmin={isAdmin}
                           currentUserId={currentUserId ?? null}
                           isHighlighted={highlightedTaskId === task.id}
