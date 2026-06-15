@@ -47,56 +47,16 @@ export function useMyMentions() {
   const [groupedMentions, setGroupedMentions] = useState<MyMentionGroup[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Collect ALL possible user IDs (auth.uid + legacy app_users.id)
-  const [userIds, setUserIds] = useState<string[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
-      const authUid = data.session?.user?.id || null;
-      if (!authUid) return;
-      const ids = [authUid];
-      
-      try {
-        const { data: userRole } = await supabase
-          .from("user_roles")
-          .select("display_name")
-          .eq("user_id", authUid)
-          .maybeSingle();
-        
-        if (userRole) {
-          const displayName = (userRole as Record<string, unknown>).display_name as string;
-          if (displayName) {
-            const { data: appUser } = await supabase
-              .from("app_users")
-              .select("id")
-              .eq("username", displayName)
-              .maybeSingle();
-            if (appUser) {
-              const legacyId = (appUser as Record<string, unknown>).id as string;
-              if (legacyId && legacyId !== authUid) ids.push(legacyId);
-            }
-          }
-        }
-        
-        const emailPrefix = data.session?.user?.email?.split("@")[0] || "";
-        if (emailPrefix && ids.length < 2) {
-          const { data: appUserByEmail } = await supabase
-            .from("app_users")
-            .select("id")
-            .eq("username", emailPrefix)
-            .maybeSingle();
-          if (appUserByEmail) {
-            const legacyId = (appUserByEmail as Record<string, unknown>).id as string;
-            if (legacyId && !ids.includes(legacyId)) ids.push(legacyId);
-          }
-        }
-      } catch (e) { /* ignore */ }
-      
-      setUserIds(ids);
+      const uid = data.session?.user?.id || null;
+      setUserId(uid);
     });
-  }, [])
+  }, []);
 
   const fetchMyMentions = useCallback(async () => {
-    if (userIds.length === 0) return;
+    if (!userId) return;
     try {
       const { data, error } = await supabase
         .from("notifications")
@@ -115,7 +75,7 @@ export function useMyMentions() {
           to_user:to_user_id ( username ),
           task:task_id ( name )
         `)
-        .in("from_user_id", userIds)
+        .eq("from_user_id", userId)
         .order("created_at", { ascending: false })
         .limit(100);
 
@@ -222,7 +182,7 @@ export function useMyMentions() {
     } finally {
       setLoading(false);
     }
-  }, [userIds]);
+  }, [userId]);
 
   useEffect(() => {
     fetchMyMentions();
@@ -230,27 +190,24 @@ export function useMyMentions() {
 
   // Realtime subscription for new notifications (I @ others) and new replies
   useEffect(() => {
-    if (userIds.length === 0) return;
+    if (!userId) return;
 
     // Subscribe to new notifications where current user is the sender (I @ others)
-    const notifChannels = userIds.map((uid) => {
-      const channel = supabase
-        .channel(`my-mentions-notif-${uid}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "notifications",
-            filter: `from_user_id=eq.${uid}`,
-          },
-          () => {
-            fetchMyMentions();
-          }
-        )
-        .subscribe();
-      return channel;
-    });
+    const notifChannel = supabase
+      .channel(`my-mentions-notif-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `from_user_id=eq.${userId}`,
+        },
+        () => {
+          fetchMyMentions();
+        }
+      )
+      .subscribe();
 
     // Subscribe to new replies on mention_replies
     const replyChannel = supabase
@@ -265,10 +222,10 @@ export function useMyMentions() {
       .subscribe();
 
     return () => {
-      notifChannels.forEach((ch) => supabase.removeChannel(ch));
+      supabase.removeChannel(notifChannel);
       supabase.removeChannel(replyChannel);
     };
-  }, [userIds, fetchMyMentions]);
+  }, [userId, fetchMyMentions]);
 
   const unrepliedCount = groupedMentions.filter((g) => !g.has_reply).length;
 

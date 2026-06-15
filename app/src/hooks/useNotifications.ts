@@ -31,69 +31,16 @@ export function useNotifications() {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Collect ALL possible user IDs for the current user
-  // notifications table may use either auth.uid() or legacy app_users.id
-  const [userIds, setUserIds] = useState<string[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
-      const authUid = data.session?.user?.id || null;
-      if (!authUid) return;
-      const ids = [authUid];
-      
-      // Also try to find the legacy app_users.id for this user
-      // Match by: 1) user_roles.display_name == app_users.username, or
-      //           2) email prefix match
-      try {
-        // Get current user's display_name from user_roles
-        const { data: userRole } = await supabase
-          .from("user_roles")
-          .select("display_name")
-          .eq("user_id", authUid)
-          .maybeSingle();
-        
-        if (userRole) {
-          const displayName = (userRole as Record<string, unknown>).display_name as string;
-          if (displayName) {
-            // Find matching app_users record by username
-            const { data: appUser } = await supabase
-              .from("app_users")
-              .select("id")
-              .eq("username", displayName)
-              .maybeSingle();
-            if (appUser) {
-              const legacyId = (appUser as Record<string, unknown>).id as string;
-              if (legacyId && legacyId !== authUid) {
-                ids.push(legacyId);
-              }
-            }
-          }
-        }
-        
-        // Also try email prefix match as fallback
-        const emailPrefix = data.session?.user?.email?.split("@")[0] || "";
-        if (emailPrefix && ids.length < 2) {
-          const { data: appUserByEmail } = await supabase
-            .from("app_users")
-            .select("id")
-            .eq("username", emailPrefix)
-            .maybeSingle();
-          if (appUserByEmail) {
-            const legacyId = (appUserByEmail as Record<string, unknown>).id as string;
-            if (legacyId && !ids.includes(legacyId)) {
-              ids.push(legacyId);
-            }
-          }
-        }
-      } catch (e) {
-        // Ignore errors in legacy lookup
-      }
-      
-      setUserIds(ids);
+      const uid = data.session?.user?.id || null;
+      setUserId(uid);
     });
-  }, [])
+  }, []);
 
   const fetchNotifications = useCallback(async () => {
-    if (userIds.length === 0) return;
+    if (!userId) return;
     try {
       const { data, error } = await supabase
         .from("notifications")
@@ -111,7 +58,7 @@ export function useNotifications() {
           from_user:from_user_id ( username ),
           task:task_id ( name )
         `)
-        .in("to_user_id", userIds)
+        .eq("to_user_id", userId)
         .order("created_at", { ascending: false })
         .limit(100);
 
@@ -179,7 +126,7 @@ export function useNotifications() {
     } finally {
       setLoading(false);
     }
-  }, [userIds]);
+  }, [userId]);
 
   // Initial fetch
   useEffect(() => {
@@ -188,29 +135,26 @@ export function useNotifications() {
 
   // Realtime subscription for new notifications and replies
   useEffect(() => {
-    if (userIds.length === 0) return;
+    if (!userId) return;
 
-    // Subscribe for each possible user ID (new @mentions to me)
-    const notifChannels = userIds.map((uid) => {
-      const channel = supabase
-        .channel(`notifications-realtime-${uid}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "notifications",
-            filter: `to_user_id=eq.${uid}`,
-          },
-          () => {
-            fetchNotifications();
-          }
-        )
-        .subscribe();
-      return channel;
-    });
+    // Subscribe to new @mentions to me
+    const notifChannel = supabase
+      .channel(`notifications-realtime-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `to_user_id=eq.${userId}`,
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
 
-    // Subscribe to new replies on mention_replies (someone replied to a thread I'm in)
+    // Subscribe to new replies on mention_replies
     const replyChannel = supabase
       .channel("notifications-replies-realtime")
       .on(
@@ -223,10 +167,10 @@ export function useNotifications() {
       .subscribe();
 
     return () => {
-      notifChannels.forEach((ch) => supabase.removeChannel(ch));
+      supabase.removeChannel(notifChannel);
       supabase.removeChannel(replyChannel);
     };
-  }, [userIds, fetchNotifications]);
+  }, [userId, fetchNotifications]);
 
   // Mark single notification as read
   const markAsRead = useCallback(
@@ -245,22 +189,21 @@ export function useNotifications() {
 
   // Mark all as read
   const markAllAsRead = useCallback(async () => {
-    if (userIds.length === 0) return;
+    if (!userId) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnreadCount(0);
     await supabase
       .from("notifications")
       .update({ is_read: true })
-      .in("to_user_id", userIds)
+      .eq("to_user_id", userId)
       .eq("is_read", false);
-  }, [userIds]);
+  }, [userId]);
 
   // Add reply to a notification
   const addReply = useCallback(
     async (notificationId: string, progressEntryId: string, taskId: string, content: string) => {
-      const fromUserId = userIds.length > 0 ? userIds[0] : null;
+      const fromUserId = userId;
       const fromUsername = "用户";
-      // TODO: get username from session
       if (!fromUserId || !content.trim()) return;
 
       const replyId = crypto.randomUUID();
