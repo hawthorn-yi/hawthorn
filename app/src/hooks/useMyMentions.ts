@@ -217,12 +217,14 @@ export function useMyMentions() {
   }, [userId, fetchMyMentions]);
 
   const unrepliedCount = groupedMentions.filter((g) => !g.has_reply).length;
+  const totalCount = groupedMentions.length;
 
   return {
     mentions,
     groupedMentions,
     loading,
     unrepliedCount,
+    totalCount,
     refresh: fetchMyMentions,
   };
 }

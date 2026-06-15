@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { parseMentions, resolveMentions } from "@/lib/mentions";
 
 
 export interface NotificationReply {
@@ -192,8 +193,22 @@ export function useNotifications() {
   const addReply = useCallback(
     async (notificationId: string, progressEntryId: string, taskId: string, content: string) => {
       const fromUserId = userId;
-      const fromUsername = "用户";
       if (!fromUserId || !content.trim()) return;
+
+      // Get the current user's username from user_roles table
+      let fromUsername = "用户";
+      try {
+        const { data: userRole } = await supabase
+          .from("user_roles")
+          .select("username")
+          .eq("user_id", fromUserId)
+          .single();
+        if (userRole?.username) {
+          fromUsername = userRole.username;
+        }
+      } catch {
+        // fallback to "用户"
+      }
 
       const replyId = crypto.randomUUID();
       const now = new Date().toISOString();
@@ -247,8 +262,7 @@ export function useNotifications() {
       // Find the original sender (who sent the @mention)
       const notif = notifications.find((n) => n.id === notificationId);
       const repliedToUser = notif?.from_username || "用户";
-      // The reply note should show: "test 回复了 @kevin: 内容"
-      // where fromUsername is current user (replier) and repliedToUser is original @sender
+      // The reply note should show: "username 回复了 @xxx: 内容"
       if (!notif || !repliedToUser) return;
       const replyNote = `${fromUsername} 回复了 @${repliedToUser}: ${content.trim()}`;
       await supabase.from("progress_entries").insert({
@@ -259,8 +273,39 @@ export function useNotifications() {
         note: replyNote,
         username: fromUsername,
       });
+
+      // Handle @mentions in reply content - create notifications for mentioned users
+      const mentions = parseMentions(content);
+      if (mentions.length > 0) {
+        // Build user map for mention resolution
+        const { data: allUsers } = await supabase
+          .from("user_roles")
+          .select("user_id, username");
+        const userMap = new Map<string, string>();
+        for (const u of (allUsers || [])) {
+          if (u.username) {
+            userMap.set(u.username.toLowerCase(), u.user_id);
+            userMap.set(u.username, u.user_id);
+          }
+        }
+        const resolved = resolveMentions(mentions, userMap);
+        for (const mention of resolved) {
+          // Don't notify yourself
+          if (mention.userId !== fromUserId) {
+            await supabase.from("notifications").insert({
+              id: crypto.randomUUID(),
+              from_user_id: fromUserId,
+              to_user_id: mention.userId,
+              task_id: taskId,
+              progress_entry_id: entryId,
+              note: content.trim(),
+              mentioned_username: mention.username,
+            });
+          }
+        }
+      }
     },
-    [notifications]
+    [notifications, userId]
   );
 
   return {

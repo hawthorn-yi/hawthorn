@@ -367,7 +367,7 @@ export default function Dashboard() {
   } = useTaskManager();
   const digest = useDailyDigest();
   const { unreadCount: mentionCount } = useNotifications();
-  const { unrepliedCount: myMentionCount } = useMyMentions();
+  const { unrepliedCount: myMentionUnrepliedCount } = useMyMentions();
 
   // DnD sensors
   const sensors = useSensors(
@@ -455,6 +455,19 @@ export default function Dashboard() {
     setDrawerTask((prev) => prev?.id === task.id ? null : task);
   }, []);
 
+  // Keep drawerTask in sync with tasks changes (e.g., after reply, @mention, delete)
+  useEffect(() => {
+    if (!drawerTask) return;
+    const updated = tasks.find((t) => t.id === drawerTask.id);
+    if (updated && updated.history !== drawerTask.history) {
+      setDrawerTask({ ...updated });
+    }
+    // If the task was deleted, close drawer
+    if (!updated) {
+      setDrawerTask(null);
+    }
+  }, [tasks, drawerTask]);
+
   // Delete history entry confirmation
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [deleteEntryTaskId, setDeleteEntryTaskId] = useState<string>("");
@@ -476,9 +489,16 @@ export default function Dashboard() {
     await replyToEntry(taskId, entryId, replyText);
     setReplyText("");
     setReplyEntryId(null);
-    // Refresh drawer
-    const updated = tasks.find((t) => t.id === taskId);
-    if (updated) setDrawerTask({ ...updated });
+    setMentionDropdownEntryId(null);
+    // Refresh drawer - use a timeout to ensure we read the updated tasks state
+    // after the optimistic update from replyToEntry has been applied
+    setTimeout(() => {
+      setDrawerTask((prev) => {
+        if (!prev || prev.id !== taskId) return prev;
+        const updated = tasks.find((t) => t.id === taskId);
+        return updated ? { ...updated } : prev;
+      });
+    }, 0);
   }, [replyText, replyToEntry, tasks]);
 
   const openInlineDeadline = useCallback((task: Task) => {
@@ -992,7 +1012,7 @@ export default function Dashboard() {
       onImport={handleImport}
       followUpCount={followUpTasks().length}
       mentionCount={mentionCount}
-      myMentionCount={myMentionCount}
+      myMentionCount={myMentionUnrepliedCount}
     >
       {/* Hidden file input for import */}
       <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} />

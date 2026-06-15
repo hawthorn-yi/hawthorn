@@ -6,6 +6,7 @@ const api = require('./api.js');
 const authToken = require('../utils/auth-token.js');
 const { uuid } = require('../utils/id.js');
 const dateUtil = require('../utils/date.js');
+const mentionsUtil = require('../utils/mentions.js');
 
 /**
  * 获取收到的通知
@@ -156,7 +157,7 @@ function markAllAsRead() {
 /**
  * 回复通知
  */
-function addReply(notificationId, progressEntryId, taskId, content) {
+function addReply(notificationId, progressEntryId, taskId, content, repliedToUser) {
   var fromUserId = authToken.getCurrentUserId();
   var fromUsername = authToken.getAuthToken()?.username || '未知';
   if (!fromUserId || !content.trim()) return Promise.reject(new Error('参数错误'));
@@ -180,12 +181,42 @@ function addReply(notificationId, progressEntryId, taskId, content) {
       });
     });
   }).then(function() {
-    // 同时写入 progress_entry
+    // 同时写入 progress_entry，格式与 Web 端一致
     var entryId = uuid();
-    var replyNote = fromUsername + ' 回复了: ' + content.trim();
+    var replyNote = fromUsername + ' 回复了 @' + (repliedToUser || '用户') + ': ' + content.trim();
     return api.insert('progress_entries', {
       id: entryId, task_id: taskId, timestamp: now,
       progress: 0, note: replyNote, username: fromUsername
+    }).then(function() {
+      // 处理回复内容中的 @提及
+      var mentions = mentionsUtil.parseMentions(content);
+      if (mentions.length > 0) {
+        return api.select('user_roles', { select: 'user_id,username' }).then(function(users) {
+          var userMap = {};
+          (users || []).forEach(function(u) {
+            if (u.username) {
+              userMap[u.username.toLowerCase()] = u.user_id;
+              userMap[u.username] = u.user_id;
+            }
+          });
+          var resolved = mentionsUtil.resolveMentions(mentions, userMap);
+          var mentionPromises = [];
+          resolved.forEach(function(mention) {
+            if (mention.userId !== fromUserId) {
+              mentionPromises.push(api.insert('notifications', {
+                id: uuid(),
+                from_user_id: fromUserId,
+                to_user_id: mention.userId,
+                task_id: taskId,
+                progress_entry_id: entryId,
+                note: content.trim(),
+                mentioned_username: mention.username
+              }));
+            }
+          });
+          return Promise.all(mentionPromises);
+        });
+      }
     });
   });
 }
