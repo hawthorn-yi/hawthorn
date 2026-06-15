@@ -280,7 +280,7 @@ function SortableTaskCard({ task, index, allCategories, projectMembers, onToggle
         {/* Row 2.5: Project Members */}
         {projectMembers.length > 0 && (
           <div className="flex items-center gap-1.5 mt-2 ml-[28px] flex-wrap">
-            {projectMembers.map((member) => (
+            {[...projectMembers].sort((a, b) => (a.role === "owner" ? -1 : 1) - (b.role === "owner" ? -1 : 1)).map((member) => (
               <span
                 key={member.id}
                 className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[0.625rem] font-medium ${
@@ -1380,7 +1380,7 @@ export default function Dashboard() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">不指派</SelectItem>
-                    {getTaskMembers(editingTask.id).map((member) => (
+                    {[...getTaskMembers(editingTask.id)].sort((a, b) => (a.role === "owner" ? -1 : 1) - (b.role === "owner" ? -1 : 1)).map((member) => (
                       <SelectItem key={member.user_id} value={member.user_id}>
                         <div className="flex items-center gap-2">
                           <User className="w-3.5 h-3.5" />
