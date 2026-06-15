@@ -460,6 +460,7 @@ export default function Dashboard() {
   const [deleteEntryTaskId, setDeleteEntryTaskId] = useState<string>("");
   const [replyEntryId, setReplyEntryId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
+  const [mentionDropdownEntryId, setMentionDropdownEntryId] = useState<string | null>(null);
   const confirmDeleteEntry = useCallback(async () => {
     if (!deleteEntryId || !deleteEntryTaskId) return;
     await deleteHistoryEntry(deleteEntryTaskId, deleteEntryId);
@@ -1966,26 +1967,61 @@ export default function Dashboard() {
                           <div className="flex items-center justify-between mt-2">
                             {/* Reply button */}
                             {replyEntryId === entry.id ? (
-                              <div className="flex items-center gap-2 flex-1">
-                                <input
-                                  type="text"
-                                  value={replyText}
-                                  onChange={(e) => setReplyText(e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === "Enter") handleReply(drawerTask.id, entry.id); }}
-                                  placeholder="输入回复..."
-                                  className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white border border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]/20 outline-none transition-all"
-                                  autoFocus
-                                />
+                              <div className="flex items-center gap-1.5 flex-1">
+                                <div className="relative flex-1 flex items-center gap-1">
+                                  {/* @ mention button */}
+                                  <button
+                                    onClick={() => setMentionDropdownEntryId(mentionDropdownEntryId === entry.id ? null : entry.id)}
+                                    className="shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-[#94A3B8] hover:text-[#3B82F6] hover:bg-[#EFF6FF] transition-colors cursor-pointer"
+                                    title="@提及成员"
+                                  >
+                                    <span className="text-xs font-bold">@</span>
+                                  </button>
+                                  <input
+                                    type="text"
+                                    value={replyText}
+                                    onChange={(e) => setReplyText(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === "Enter") handleReply(drawerTask.id, entry.id); }}
+                                    placeholder="输入回复，用 @ 提及成员..."
+                                    className="flex-1 px-2 py-1.5 text-xs rounded-lg bg-white border border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]/20 outline-none transition-all"
+                                    autoFocus
+                                  />
+                                  {/* @ mention dropdown */}
+                                  {mentionDropdownEntryId === entry.id && (
+                                    <>
+                                      <div className="fixed inset-0 z-10" onClick={() => setMentionDropdownEntryId(null)} />
+                                      <div className="absolute left-0 bottom-full mb-1 z-20 bg-white rounded-lg border border-[#E2E8F0] shadow-lg py-1 min-w-[160px] max-h-[180px] overflow-y-auto">
+                                        {getTaskMembers(drawerTask.id).map((member) => (
+                                          <button
+                                            key={member.user_id}
+                                            onClick={() => {
+                                              const name = member.username || member.user_id;
+                                              setReplyText((prev) => prev + (prev && !prev.endsWith(" ") ? " " : "") + "@" + name + " ");
+                                              setMentionDropdownEntryId(null);
+                                            }}
+                                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[#475569] hover:bg-[#F8FAFC] transition-colors cursor-pointer text-left"
+                                          >
+                                            {member.role === "owner" && <Crown className="w-3 h-3 text-[#F59E0B]" />}
+                                            <span>{member.username || member.user_id}</span>
+                                          </button>
+                                        ))}
+                                        {getTaskMembers(drawerTask.id).length === 0 && (
+                                          <div className="px-3 py-2 text-xs text-[#94A3B8] text-center">暂无参与成员</div>
+                                        )}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
                                 <button
                                   onClick={() => handleReply(drawerTask.id, entry.id)}
                                   disabled={!replyText.trim()}
-                                  className="p-1.5 rounded-lg bg-[#3B82F6] text-white hover:bg-[#2563EB] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                  className="shrink-0 p-1.5 rounded-lg bg-[#3B82F6] text-white hover:bg-[#2563EB] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                                 >
                                   <Send className="w-3 h-3" />
                                 </button>
                                 <button
-                                  onClick={() => { setReplyEntryId(null); setReplyText(""); }}
-                                  className="text-[0.6875rem] text-[#94A3B8] hover:text-[#64748B] cursor-pointer"
+                                  onClick={() => { setReplyEntryId(null); setReplyText(""); setMentionDropdownEntryId(null); }}
+                                  className="shrink-0 text-[0.6875rem] text-[#94A3B8] hover:text-[#64748B] cursor-pointer"
                                 >
                                   取消
                                 </button>
