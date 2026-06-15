@@ -47,7 +47,7 @@ export const DEFAULT_CATEGORIES: CustomCategory[] = [
   { id: "temporary", name: "临时项目", color: "#F59E0B" },
 ];
 
-export type FilterType = "all" | "in-progress" | "completed" | "overdue";
+export type FilterType = "all" | "in-progress" | "completed" | "overdue" | "terminated";
 
 // ─── Project Members ───
 export interface ProjectMember {

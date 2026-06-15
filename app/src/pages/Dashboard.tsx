@@ -596,7 +596,8 @@ export default function Dashboard() {
     const inProgress = filtered.filter((t) => t.status === "active").length;
     const completed = filtered.filter((t) => t.status === "completed").length;
     const overdueCount = filtered.filter((t) => t.status === "overdue").length;
-    return { total, inProgress, completed, overdue: overdueCount };
+    const terminatedCount = filtered.filter((t) => t.status === "terminated").length;
+    return { total, inProgress, completed, overdue: overdueCount, terminated: terminatedCount };
   }, [tasks, categoryFilter, selectedUserUsername, projectMembers]);
 
   const digestCounts = useMemo(() => {
@@ -632,20 +633,17 @@ export default function Dashboard() {
   // Filtered & sorted
   const filteredTasks = useMemo(() => {
     let result = [...tasks];
-    if (!showTerminated) result = result.filter((t) => t.status !== "terminated");
     // Apply status filter
     if (filter === "in-progress") {
-      // "进行中": only active (not overdue, not completed)
       result = result.filter((t) => t.status === "active");
     } else if (filter === "overdue") {
-      // "已逾期": only overdue
       result = result.filter((t) => t.status === "overdue");
     } else if (filter === "completed") {
-      // "已完成": only completed
       result = result.filter((t) => t.status === "completed");
+    } else if (filter === "terminated") {
+      result = result.filter((t) => t.status === "terminated");
     } else {
-      // "全部": active + overdue (completed shown in collapsed section, terminated toggled)
-      result = result.filter((t) => t.status !== "completed");
+      // "全部": show all tasks including terminated
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -679,7 +677,7 @@ export default function Dashboard() {
       case "name": result.sort((a, b) => a.name.localeCompare(b.name, "zh-CN")); break;
     }
     return result;
-  }, [tasks, filter, search, sortBy, showTerminated, userFilterId, categoryFilter, projectMembers]);
+  }, [tasks, filter, search, sortBy, userFilterId, categoryFilter, projectMembers]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -970,10 +968,11 @@ export default function Dashboard() {
       });
     }
     return {
-      all: filtered.filter((t) => t.status !== "completed" && t.status !== "terminated").length,
+      all: filtered.length,
       "in-progress": filtered.filter((t) => t.status === "active").length,
       completed: filtered.filter((t) => t.status === "completed").length,
       overdue: filtered.filter((t) => t.status === "overdue").length,
+      terminated: filtered.filter((t) => t.status === "terminated").length,
     };
   }, [tasks, categoryFilter, selectedUserUsername, projectMembers]);
 
@@ -1026,14 +1025,17 @@ export default function Dashboard() {
         >
           <p className="text-xs text-[#94A3B8] uppercase tracking-widest mb-3 font-medium">筛选</p>
           <div className="flex flex-col gap-1">
-            {([{ k: "all" as FilterType, l: "全部任务" }, { k: "in-progress" as FilterType, l: "进行中" }, { k: "completed" as FilterType, l: "已完成" }, { k: "overdue" as FilterType, l: "已逾期" }]).map(({ k, l }, i) => (
+            {([{ k: "all" as FilterType, l: "全部任务" }, { k: "in-progress" as FilterType, l: "进行中" }, { k: "completed" as FilterType, l: "已完成" }, { k: "overdue" as FilterType, l: "已逾期" }, { k: "terminated" as FilterType, l: "已终止" }]).map(({ k, l }, i) => (
               <motion.button key={k} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.06 }}
                 onClick={() => setFilter(k)}
                 className={`flex items-center justify-between px-3 py-2 rounded-md text-sm transition-all duration-150 cursor-pointer ${
                   filter === k
                     ? k === "overdue" ? "bg-[#FFF1F2] text-[#E11D48] font-medium border-l-2 border-[#F43F5E]"
+                    : k === "terminated" ? "bg-[#F1F5F9] text-[#64748B] font-medium border-l-2 border-[#94A3B8]"
                     : "bg-[#EFF6FF] text-[#2563EB] font-medium border-l-2 border-[#3B82F6]"
-                    : k === "overdue" ? "text-[#F43F5E] hover:bg-[#FFF1F2]" : "text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#334155]"
+                    : k === "overdue" ? "text-[#F43F5E] hover:bg-[#FFF1F2]"
+                    : k === "terminated" ? "text-[#94A3B8] hover:bg-[#F1F5F9] hover:text-[#64748B]"
+                    : "text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#334155]"
                 }`}
               >
                 <span>{l}</span>
@@ -1047,6 +1049,7 @@ export default function Dashboard() {
             <div className="flex justify-between text-sm"><span className="text-[#64748B]">任务总数</span><span className="font-semibold text-[#334155] text-base tabular-nums">{stats.total}</span></div>
             <div className="flex justify-between text-sm"><span className="text-[#64748B]">今日到期</span><span className={`font-semibold text-base tabular-nums ${digestCounts.dueToday > 0 ? "text-[#F59E0B]" : "text-[#334155]"}`}>{digestCounts.dueToday}</span></div>
             <div className="flex justify-between text-sm"><span className="text-[#64748B]">已逾期</span><span className={`font-semibold text-base tabular-nums ${stats.overdue > 0 ? "text-[#F43F5E]" : "text-[#334155]"}`}>{stats.overdue}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-[#64748B]">已终止</span><span className={`font-semibold text-base tabular-nums ${stats.terminated > 0 ? "text-[#94A3B8]" : "text-[#334155]"}`}>{stats.terminated}</span></div>
             <div className="flex justify-between text-sm"><span className="text-[#64748B]">完成率</span><span className="font-semibold text-[#3B82F6] text-base tabular-nums">{stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%</span></div>
           </div>
 
@@ -1056,6 +1059,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2 text-[0.8125rem] text-[#64748B]"><span className="w-2 h-2 rounded-full bg-[#F59E0B]" /> 即将到期</div>
             <div className="flex items-center gap-2 text-[0.8125rem] text-[#64748B]"><span className="w-2 h-2 rounded-full bg-[#F43F5E]" /> 已逾期</div>
             <div className="flex items-center gap-2 text-[0.8125rem] text-[#64748B]"><span className="w-2 h-2 rounded-full bg-[#10B981]" /> 已完成</div>
+            <div className="flex items-center gap-2 text-[0.8125rem] text-[#64748B]"><span className="w-2 h-2 rounded-full bg-[#94A3B8]" /> 已终止</div>
           </div>
 
           <p className="text-xs text-[#94A3B8] uppercase tracking-widest mt-8 mb-3 font-medium">操作</p>
@@ -1109,7 +1113,7 @@ export default function Dashboard() {
 
           {/* Mobile Filter Pills */}
           <div className="lg:hidden flex gap-1 sm:gap-2 mb-2 sm:mb-3 overflow-x-auto pb-1 -mx-1 px-1">
-            {[{ k: "all" as FilterType, l: "全部" }, { k: "in-progress" as FilterType, l: "进行中" }, { k: "completed" as FilterType, l: "已完成" }, { k: "overdue" as FilterType, l: "已逾期" }].map(({ k, l }) => (
+            {[{ k: "all" as FilterType, l: "全部" }, { k: "in-progress" as FilterType, l: "进行中" }, { k: "completed" as FilterType, l: "已完成" }, { k: "overdue" as FilterType, l: "已逾期" }, { k: "terminated" as FilterType, l: "已终止" }].map(({ k, l }) => (
               <button key={k} onClick={() => setFilter(k)}
                 className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[0.6875rem] sm:text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
                   filter === k ? "bg-[#EFF6FF] text-[#2563EB]" : "bg-white text-[#64748B] border border-[#E2E8F0]"
@@ -1289,8 +1293,8 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Terminated Projects */}
-                {terminatedTasks.length > 0 && (
+                {/* Terminated Projects - only show when filter is "all" */}
+                {filter === "all" && terminatedTasks.length > 0 && (
                   <div className="mt-4">
                     <button onClick={() => setShowTerminated(!showTerminated)}
                       className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-sm text-[#64748B] hover:bg-[#F1F5F9] hover:border-[#CBD5E1] transition-all duration-200 cursor-pointer w-full">
