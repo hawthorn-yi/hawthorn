@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2, History, Calendar, Clock, ChevronDown,
   ChevronRight, OctagonX, Paperclip, FileText, SlidersHorizontal,
   GripVertical, Download, Upload, Undo2, Eye, RefreshCw, Crown,
-  User, CornerDownRight,
+  User, CornerDownRight, Reply, Send,
 } from "lucide-react";
 import type { DragEndEvent } from "@dnd-kit/core";
 import {
@@ -357,7 +357,7 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     tasks, addTask, updateTask, deleteTask, toggleComplete,
-    terminateTask, restoreTask, deleteHistoryEntry, allCategories, addCustomCategory,
+    terminateTask, restoreTask, deleteHistoryEntry, replyToEntry, allCategories, addCustomCategory,
     updateCategory, deleteCategory,
     exportData, exportExcel, importData, clearAllData,
     reorderTasks, loading, error, refreshData,
@@ -458,6 +458,8 @@ export default function Dashboard() {
   // Delete history entry confirmation
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [deleteEntryTaskId, setDeleteEntryTaskId] = useState<string>("");
+  const [replyEntryId, setReplyEntryId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
   const confirmDeleteEntry = useCallback(async () => {
     if (!deleteEntryId || !deleteEntryTaskId) return;
     await deleteHistoryEntry(deleteEntryTaskId, deleteEntryId);
@@ -467,6 +469,16 @@ export default function Dashboard() {
     const updated = tasks.find((t) => t.id === deleteEntryTaskId);
     if (updated) setDrawerTask({ ...updated });
   }, [deleteEntryId, deleteEntryTaskId, deleteHistoryEntry, tasks]);
+
+  const handleReply = useCallback(async (taskId: string, entryId: string) => {
+    if (!replyText.trim()) return;
+    await replyToEntry(taskId, entryId, replyText);
+    setReplyText("");
+    setReplyEntryId(null);
+    // Refresh drawer
+    const updated = tasks.find((t) => t.id === taskId);
+    if (updated) setDrawerTask({ ...updated });
+  }, [replyText, replyToEntry, tasks]);
 
   const openInlineDeadline = useCallback((task: Task) => {
     setInlineDeadlineTask(task);
@@ -1937,12 +1949,60 @@ export default function Dashboard() {
                             </div>
                           )}
                           {entry.note && (
-                            <p className="text-xs text-[#64748B] leading-relaxed">{entry.note}</p>
+                            <p className={`text-xs leading-relaxed ${entry.reply_to ? "" : "text-[#64748B]"}`}>
+                              {entry.reply_to && entry.reply_note ? (
+                                <>
+                                  <span className="text-[#94A3B8] italic block border-l-2 border-[#CBD5E1] pl-2 mb-1">
+                                    {entry.reply_username || "用户"}：{entry.reply_note}
+                                  </span>
+                                  <span className="text-[#475569]">{entry.note}</span>
+                                </>
+                              ) : (
+                                entry.note
+                              )}
+                            </p>
                           )}
-                          {/* Delete button - only creator or admin */}
-                          {(isAdmin || (entry.username && entry.username === null)) && (
-                          <div className="flex justify-end mt-2">
-                            <AlertDialog open={deleteEntryId === entry.id} onOpenChange={(open) => !open && setDeleteEntryId(null)}>
+                          {/* Reply + Delete buttons */}
+                          <div className="flex items-center justify-between mt-2">
+                            {/* Reply button */}
+                            {replyEntryId === entry.id ? (
+                              <div className="flex items-center gap-2 flex-1">
+                                <input
+                                  type="text"
+                                  value={replyText}
+                                  onChange={(e) => setReplyText(e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === "Enter") handleReply(drawerTask.id, entry.id); }}
+                                  placeholder="输入回复..."
+                                  className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white border border-[#E2E8F0] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]/20 outline-none transition-all"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => handleReply(drawerTask.id, entry.id)}
+                                  disabled={!replyText.trim()}
+                                  className="p-1.5 rounded-lg bg-[#3B82F6] text-white hover:bg-[#2563EB] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                >
+                                  <Send className="w-3 h-3" />
+                                </button>
+                                <button
+                                  onClick={() => { setReplyEntryId(null); setReplyText(""); }}
+                                  className="text-[0.6875rem] text-[#94A3B8] hover:text-[#64748B] cursor-pointer"
+                                >
+                                  取消
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setReplyEntryId(entry.id)}
+                                className="flex items-center gap-1 text-[0.6875rem] text-[#94A3B8] hover:text-[#3B82F6] transition-colors cursor-pointer"
+                              >
+                                <Reply className="w-3 h-3" />
+                                回复
+                              </button>
+                            )}
+                            {/* Delete button - only admin */}
+                            {isAdmin && (
+                            <div>
+                              <AlertDialog open={deleteEntryId === entry.id} onOpenChange={(open) => !open && setDeleteEntryId(null)}>
                               <AlertDialogTrigger asChild>
                                 <button
                                   onClick={() => { setDeleteEntryId(entry.id); setDeleteEntryTaskId(drawerTask.id); }}
@@ -1978,6 +2038,7 @@ export default function Dashboard() {
                             </AlertDialog>
                           </div>
                           )}
+                          </div>
                         </motion.div>
                       ))}
                     </div>

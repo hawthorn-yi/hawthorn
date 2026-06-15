@@ -12,6 +12,9 @@ export interface ProgressEntry {
   progress: number;
   note: string;
   username?: string; // Who created this entry
+  reply_to?: string; // ID of the entry this is replying to
+  reply_note?: string; // Original note being replied to (for display)
+  reply_username?: string; // Original author being replied to
 }
 
 export type TaskCategory = string;

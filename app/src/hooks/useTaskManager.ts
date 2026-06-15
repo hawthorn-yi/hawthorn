@@ -712,6 +712,95 @@ export function useTaskManager() {
     await supabase.from("progress_entries").delete().eq("id", entryId).eq("task_id", taskId);
   }, []);
 
+  // Reply to a progress entry
+  const replyToEntry = useCallback(async (taskId: string, entryId: string, replyNote: string) => {
+    const fromUserId = authUserRef.current?.id;
+    const fromUsername = getCurrentUsername();
+    if (!fromUserId || !replyNote.trim()) return;
+
+    const entryId2 = generateId();
+    const now = new Date().toISOString();
+
+    // Find the original entry to get its note and username
+    const task = tasks.find((t) => t.id === taskId);
+    const originalEntry = task?.history.find((h) => h.id === entryId);
+    const originalNote = originalEntry?.note || "";
+    const originalUsername = originalEntry?.username || "";
+
+    const newEntry: ProgressEntry = {
+      id: entryId2,
+      taskId,
+      timestamp: now,
+      progress: task?.progress || 0,
+      note: replyNote.trim(),
+      username: fromUsername,
+      reply_to: entryId,
+      reply_note: originalNote,
+      reply_username: originalUsername,
+    };
+
+    // Optimistic update
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id !== taskId) return t;
+        return { ...t, history: [...t.history, newEntry] };
+      })
+    );
+
+    // Write to progress_entries
+    await supabase.from("progress_entries").insert({
+      id: entryId2,
+      task_id: taskId,
+      timestamp: now,
+      progress: task?.progress || 0,
+      note: replyNote.trim(),
+      username: fromUsername,
+      reply_to: entryId,
+      reply_note: originalNote,
+      reply_username: originalUsername,
+    });
+
+    // Handle @mentions in reply
+    const mentions = parseMentions(replyNote);
+    if (mentions.length > 0) {
+      const resolved = resolveMentions(mentions, userMapRef.current);
+      for (const mention of resolved) {
+        if (mention.userId !== fromUserId) {
+          await supabase.from("notifications").insert({
+            id: generateId(),
+            from_user_id: fromUserId,
+            to_user_id: mention.userId,
+            task_id: taskId,
+            progress_entry_id: entryId2,
+            note: replyNote.trim(),
+            mentioned_username: mention.username,
+          });
+        }
+      }
+    }
+
+    // Also notify the original entry author (if not self and not already @mentioned)
+    if (originalUsername && originalUsername !== fromUsername) {
+      const originalUserId = userMapRef.current.get(originalUsername) 
+        || userMapRef.current.get(originalUsername.toLowerCase());
+      if (originalUserId && originalUserId !== fromUserId) {
+        const alreadyNotified = mentions.length > 0 && 
+          resolveMentions(mentions, userMapRef.current).some(m => m.userId === originalUserId);
+        if (!alreadyNotified) {
+          await supabase.from("notifications").insert({
+            id: generateId(),
+            from_user_id: fromUserId,
+            to_user_id: originalUserId,
+            task_id: taskId,
+            progress_entry_id: entryId2,
+            note: `回复了你的更新: ${replyNote.trim()}`,
+            mentioned_username: originalUsername,
+          });
+        }
+      }
+    }
+  }, [tasks]);
+
   const addCustomCategory = useCallback(async (name: string, color: string): Promise<CustomCategory> => {
     const newCat: CustomCategory = {
       id: "custom-" + generateId(),
@@ -1028,6 +1117,7 @@ export function useTaskManager() {
     clearAllData,
     reorderTasks,
     deleteHistoryEntry,
+    replyToEntry,
     refreshData: fetchAllData,
     getTaskMembers,
     addProjectMember,
