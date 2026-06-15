@@ -748,7 +748,7 @@ export function useTaskManager() {
     );
 
     // Write to progress_entries
-    await supabase.from("progress_entries").insert({
+    const { error: entryError } = await supabase.from("progress_entries").insert({
       id: entryId2,
       task_id: taskId,
       timestamp: now,
@@ -759,6 +759,18 @@ export function useTaskManager() {
       reply_note: originalNote,
       reply_username: originalUsername,
     });
+    if (entryError) {
+      console.error("Failed to write reply to progress_entries:", entryError);
+      toast.error("回复保存失败，请重试");
+      // Rollback optimistic update
+      setTasks((prev) =>
+        prev.map((t) => {
+          if (t.id !== taskId) return t;
+          return { ...t, history: t.history.filter((h) => h.id !== entryId2) };
+        })
+      );
+      return;
+    }
 
     // Handle @mentions in reply
     const mentions = parseMentions(replyNote);
@@ -766,7 +778,7 @@ export function useTaskManager() {
       const resolved = resolveMentions(mentions, userMapRef.current);
       for (const mention of resolved) {
         if (mention.userId !== fromUserId) {
-          await supabase.from("notifications").insert({
+          const { error: mentionError } = await supabase.from("notifications").insert({
             id: generateId(),
             from_user_id: fromUserId,
             to_user_id: mention.userId,
@@ -775,6 +787,9 @@ export function useTaskManager() {
             note: replyNote.trim(),
             mentioned_username: mention.username,
           });
+          if (mentionError) {
+            console.error("Failed to create @mention notification:", mentionError);
+          }
         }
       }
     }
@@ -787,7 +802,7 @@ export function useTaskManager() {
         const alreadyNotified = mentions.length > 0 && 
           resolveMentions(mentions, userMapRef.current).some(m => m.userId === originalUserId);
         if (!alreadyNotified) {
-          await supabase.from("notifications").insert({
+          const { error: notifyError } = await supabase.from("notifications").insert({
             id: generateId(),
             from_user_id: fromUserId,
             to_user_id: originalUserId,
@@ -796,6 +811,9 @@ export function useTaskManager() {
             note: `回复了你的更新: ${replyNote.trim()}`,
             mentioned_username: originalUsername,
           });
+          if (notifyError) {
+            console.error("Failed to notify original author:", notifyError);
+          }
         }
       }
     }

@@ -237,13 +237,16 @@ export function useNotifications() {
       setUnreadCount((prev) => Math.max(0, prev - 1));
 
       // Write reply to mention_replies
-      await supabase.from("mention_replies").insert({
+      const { error: replyError } = await supabase.from("mention_replies").insert({
         id: replyId,
         notification_id: notificationId,
         progress_entry_id: progressEntryId,
         from_user_id: fromUserId,
         content: content.trim(),
       });
+      if (replyError) {
+        console.error("Failed to write reply to mention_replies:", replyError);
+      }
 
       // Increment reply_count
       const { data: current } = await supabase
@@ -252,10 +255,13 @@ export function useNotifications() {
         .eq("id", notificationId)
         .single();
       const currentCount = (current?.reply_count as number) || 0;
-      await supabase
+      const { error: countError } = await supabase
         .from("notifications")
         .update({ reply_count: currentCount + 1, is_read: true })
         .eq("id", notificationId);
+      if (countError) {
+        console.error("Failed to update reply_count:", countError);
+      }
 
       // Also write a progress_entry so the reply appears in task update history
       const entryId = crypto.randomUUID();
@@ -265,7 +271,7 @@ export function useNotifications() {
       // The reply note should show: "username 回复了 @xxx: 内容"
       if (!notif || !repliedToUser) return;
       const replyNote = `${fromUsername} 回复了 @${repliedToUser}: ${content.trim()}`;
-      await supabase.from("progress_entries").insert({
+      const { error: entryError } = await supabase.from("progress_entries").insert({
         id: entryId,
         task_id: taskId,
         timestamp: now,
@@ -273,6 +279,9 @@ export function useNotifications() {
         note: replyNote,
         username: fromUsername,
       });
+      if (entryError) {
+        console.error("Failed to write reply progress_entry:", entryError);
+      }
 
       // Handle @mentions in reply content - create notifications for mentioned users
       const mentions = parseMentions(content);
@@ -292,7 +301,7 @@ export function useNotifications() {
         for (const mention of resolved) {
           // Don't notify yourself
           if (mention.userId !== fromUserId) {
-            await supabase.from("notifications").insert({
+            const { error: mentionError } = await supabase.from("notifications").insert({
               id: crypto.randomUUID(),
               from_user_id: fromUserId,
               to_user_id: mention.userId,
@@ -301,6 +310,9 @@ export function useNotifications() {
               note: content.trim(),
               mentioned_username: mention.username,
             });
+            if (mentionError) {
+              console.error("Failed to create @mention notification:", mentionError);
+            }
           }
         }
       }
