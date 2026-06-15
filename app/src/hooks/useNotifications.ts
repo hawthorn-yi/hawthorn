@@ -31,16 +31,43 @@ export function useNotifications() {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const [userId, setUserId] = useState<string | null>(null);
+  // notifications 表使用 app_users.id，需要同时查 auth.uid() 和 app_users.id
+  const [userIds, setUserIds] = useState<string[]>([]);
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
-      const uid = data.session?.user?.id || null;
-      setUserId(uid);
+      const authUid = data.session?.user?.id || null;
+      if (!authUid) return;
+      const ids = [authUid];
+
+      try {
+        // 通过 user_roles.display_name → app_users.username 找到 app_users.id
+        const { data: userRole } = await supabase
+          .from("user_roles")
+          .select("display_name")
+          .eq("user_id", authUid)
+          .maybeSingle();
+        if (userRole) {
+          const displayName = (userRole as Record<string, unknown>).display_name as string;
+          if (displayName) {
+            const { data: appUser } = await supabase
+              .from("app_users")
+              .select("id")
+              .eq("username", displayName)
+              .maybeSingle();
+            if (appUser) {
+              const legacyId = (appUser as Record<string, unknown>).id as string;
+              if (legacyId && legacyId !== authUid) ids.push(legacyId);
+            }
+          }
+        }
+      } catch (e) { /* ignore */ }
+
+      setUserIds(ids);
     });
   }, []);
 
   const fetchNotifications = useCallback(async () => {
-    if (!userId) return;
+    if (userIds.length === 0) return;
     try {
       const { data, error } = await supabase
         .from("notifications")
@@ -58,7 +85,7 @@ export function useNotifications() {
           from_user:from_user_id ( username ),
           task:task_id ( name )
         `)
-        .eq("to_user_id", userId)
+        .in("to_user_id", userIds)
         .order("created_at", { ascending: false })
         .limit(100);
 
@@ -126,7 +153,7 @@ export function useNotifications() {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userIds]);
 
   // Initial fetch
   useEffect(() => {
@@ -135,24 +162,27 @@ export function useNotifications() {
 
   // Realtime subscription for new notifications and replies
   useEffect(() => {
-    if (!userId) return;
+    if (userIds.length === 0) return;
 
-    // Subscribe to new @mentions to me
-    const notifChannel = supabase
-      .channel(`notifications-realtime-${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `to_user_id=eq.${userId}`,
-        },
-        () => {
-          fetchNotifications();
-        }
-      )
-      .subscribe();
+    // Subscribe to new @mentions for each user ID
+    const channels = userIds.map((uid) => {
+      const channel = supabase
+        .channel(`notifications-realtime-${uid}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `to_user_id=eq.${uid}`,
+          },
+          () => {
+            fetchNotifications();
+          }
+        )
+        .subscribe();
+      return channel;
+    });
 
     // Subscribe to new replies on mention_replies
     const replyChannel = supabase
@@ -167,10 +197,10 @@ export function useNotifications() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(notifChannel);
+      channels.forEach((ch) => supabase.removeChannel(ch));
       supabase.removeChannel(replyChannel);
     };
-  }, [userId, fetchNotifications]);
+  }, [userIds, fetchNotifications]);
 
   // Mark single notification as read
   const markAsRead = useCallback(
@@ -189,20 +219,20 @@ export function useNotifications() {
 
   // Mark all as read
   const markAllAsRead = useCallback(async () => {
-    if (!userId) return;
+    if (userIds.length === 0) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnreadCount(0);
     await supabase
       .from("notifications")
       .update({ is_read: true })
-      .eq("to_user_id", userId)
+      .in("to_user_id", userIds)
       .eq("is_read", false);
-  }, [userId]);
+  }, [userIds]);
 
   // Add reply to a notification
   const addReply = useCallback(
     async (notificationId: string, progressEntryId: string, taskId: string, content: string) => {
-      const fromUserId = userId;
+      const fromUserId = userIds.length > 0 ? userIds[0] : null;
       const fromUsername = "用户";
       if (!fromUserId || !content.trim()) return;
 

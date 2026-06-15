@@ -47,16 +47,42 @@ export function useMyMentions() {
   const [groupedMentions, setGroupedMentions] = useState<MyMentionGroup[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [userId, setUserId] = useState<string | null>(null);
+  // notifications 表使用 app_users.id，需要同时查 auth.uid() 和 app_users.id
+  const [userIds, setUserIds] = useState<string[]>([]);
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
-      const uid = data.session?.user?.id || null;
-      setUserId(uid);
+      const authUid = data.session?.user?.id || null;
+      if (!authUid) return;
+      const ids = [authUid];
+
+      try {
+        const { data: userRole } = await supabase
+          .from("user_roles")
+          .select("display_name")
+          .eq("user_id", authUid)
+          .maybeSingle();
+        if (userRole) {
+          const displayName = (userRole as Record<string, unknown>).display_name as string;
+          if (displayName) {
+            const { data: appUser } = await supabase
+              .from("app_users")
+              .select("id")
+              .eq("username", displayName)
+              .maybeSingle();
+            if (appUser) {
+              const legacyId = (appUser as Record<string, unknown>).id as string;
+              if (legacyId && legacyId !== authUid) ids.push(legacyId);
+            }
+          }
+        }
+      } catch (e) { /* ignore */ }
+
+      setUserIds(ids);
     });
   }, []);
 
   const fetchMyMentions = useCallback(async () => {
-    if (!userId) return;
+    if (userIds.length === 0) return;
     try {
       const { data, error } = await supabase
         .from("notifications")
@@ -75,7 +101,7 @@ export function useMyMentions() {
           to_user:to_user_id ( username ),
           task:task_id ( name )
         `)
-        .eq("from_user_id", userId)
+        .in("from_user_id", userIds)
         .order("created_at", { ascending: false })
         .limit(100);
 
@@ -182,7 +208,7 @@ export function useMyMentions() {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userIds]);
 
   useEffect(() => {
     fetchMyMentions();
@@ -190,24 +216,27 @@ export function useMyMentions() {
 
   // Realtime subscription for new notifications (I @ others) and new replies
   useEffect(() => {
-    if (!userId) return;
+    if (userIds.length === 0) return;
 
     // Subscribe to new notifications where current user is the sender (I @ others)
-    const notifChannel = supabase
-      .channel(`my-mentions-notif-${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `from_user_id=eq.${userId}`,
-        },
-        () => {
-          fetchMyMentions();
-        }
-      )
-      .subscribe();
+    const channels = userIds.map((uid) => {
+      const channel = supabase
+        .channel(`my-mentions-notif-${uid}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `from_user_id=eq.${uid}`,
+          },
+          () => {
+            fetchMyMentions();
+          }
+        )
+        .subscribe();
+      return channel;
+    });
 
     // Subscribe to new replies on mention_replies
     const replyChannel = supabase
@@ -222,10 +251,10 @@ export function useMyMentions() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(notifChannel);
+      channels.forEach((ch) => supabase.removeChannel(ch));
       supabase.removeChannel(replyChannel);
     };
-  }, [userId, fetchMyMentions]);
+  }, [userIds, fetchMyMentions]);
 
   const unrepliedCount = groupedMentions.filter((g) => !g.has_reply).length;
 
