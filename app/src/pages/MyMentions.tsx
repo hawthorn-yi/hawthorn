@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, AtSign, Inbox, ChevronRight,
   CornerDownRight, CheckCircle2, Clock,
-  ChevronDown, X,
+  ChevronDown, X, OctagonX,
 } from "lucide-react";
 import { useMyMentions } from "@/hooks/useMyMentions";
 
@@ -26,13 +26,23 @@ function formatTime(iso: string): string {
 
 export default function MyMentions() {
   const navigate = useNavigate();
-  const { groupedMentions, loading } = useMyMentions();
+  const { groupedMentions, loading, dismissMention } = useMyMentions();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [mentionedUserFilter, setMentionedUserFilter] = useState<string>("");
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  const [dismissingId, setDismissingId] = useState<string | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
+  };
+
+  const handleDismiss = async (progressEntryId: string) => {
+    setDismissingId(progressEntryId);
+    try {
+      await dismissMention(progressEntryId);
+    } finally {
+      setDismissingId(null);
+    }
   };
 
   // Extract all unique mentioned users for filter
@@ -52,7 +62,8 @@ export default function MyMentions() {
     return groupedMentions.filter((g) => g.mentioned_users.includes(mentionedUserFilter));
   }, [groupedMentions, mentionedUserFilter]);
 
-  const repliedCount = filteredGroups.filter((g) => g.has_reply).length;
+  const repliedCount = filteredGroups.filter((g) => g.has_reply && !g.dismissed).length;
+  const dismissedCount = filteredGroups.filter((g) => g.dismissed).length;
   const unrepliedCount = filteredGroups.filter((g) => !g.has_reply).length;
 
   return (
@@ -77,7 +88,7 @@ export default function MyMentions() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="grid grid-cols-3 gap-3 mb-6"
+          className="grid grid-cols-4 gap-3 mb-6"
         >
           <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-[#EFF6FF] flex items-center justify-center">
@@ -104,6 +115,15 @@ export default function MyMentions() {
             <div>
               <p className="text-[1.375rem] font-bold text-[#1E293B] tabular-nums">{unrepliedCount}</p>
               <p className="text-xs text-[#94A3B8]">待回复</p>
+            </div>
+          </div>
+          <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-[#F1F5F9] flex items-center justify-center">
+              <OctagonX className="w-5 h-5 text-[#94A3B8]" />
+            </div>
+            <div>
+              <p className="text-[1.375rem] font-bold text-[#1E293B] tabular-nums">{dismissedCount}</p>
+              <p className="text-xs text-[#94A3B8]">回复终止</p>
             </div>
           </div>
         </motion.div>
@@ -217,6 +237,10 @@ export default function MyMentions() {
               {filteredGroups.map((g, index) => {
                 const isExpanded = expandedId === g.progress_entry_id;
 
+                // Determine border color and status
+                const borderColor = g.dismissed ? "#94A3B8" : g.has_reply ? "#10B981" : "#F59E0B";
+                const cardOpacity = g.dismissed ? 0.6 : 1;
+
                 return (
                   <motion.div
                     key={g.progress_entry_id}
@@ -227,7 +251,8 @@ export default function MyMentions() {
                     className="bg-white border border-[#E2E8F0] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-200"
                     style={{
                       borderLeftWidth: "3px",
-                      borderLeftColor: g.has_reply ? "#10B981" : "#F59E0B",
+                      borderLeftColor: borderColor,
+                      opacity: cardOpacity,
                     }}
                   >
                     {/* Main content */}
@@ -249,7 +274,12 @@ export default function MyMentions() {
                             <span className="text-xs text-[#64748B] truncate max-w-[200px] font-medium">
                               {g.task_name}
                             </span>
-                            {g.has_reply ? (
+                            {/* Status badge */}
+                            {g.dismissed ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[0.625rem] font-medium bg-[#F1F5F9] text-[#94A3B8]">
+                                <OctagonX className="w-2.5 h-2.5" />回复终止
+                              </span>
+                            ) : g.has_reply ? (
                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[0.625rem] font-medium bg-[#ECFDF5] text-[#059669]">
                                 <CheckCircle2 className="w-2.5 h-2.5" />已回复
                               </span>
@@ -260,7 +290,7 @@ export default function MyMentions() {
                             )}
                           </div>
                           {/* Note content */}
-                          <p className="text-sm text-[#334155] leading-relaxed">
+                          <p className={`text-sm leading-relaxed ${g.dismissed ? "text-[#94A3B8] line-through" : "text-[#334155]"}`}>
                             {g.note}
                           </p>
                         </div>
@@ -291,6 +321,20 @@ export default function MyMentions() {
                             查看全部 {g.replies.length} 条回复
                           </button>
                         )}
+                      </div>
+                    )}
+
+                    {/* Dismiss button - only for unreplied mentions */}
+                    {!g.has_reply && !g.dismissed && (
+                      <div className="px-5 pb-3 border-t border-[#F1F5F9] pt-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDismiss(g.progress_entry_id); }}
+                          disabled={dismissingId === g.progress_entry_id}
+                          className="flex items-center gap-1.5 text-[0.6875rem] text-[#94A3B8] hover:text-[#64748B] transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          <OctagonX className="w-3 h-3" />
+                          {dismissingId === g.progress_entry_id ? "处理中..." : "终止回复"}
+                        </button>
                       </div>
                     )}
                   </motion.div>

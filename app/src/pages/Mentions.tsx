@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, AtSign, MessageSquare, Inbox, ChevronRight,
-  Send, Reply, CornerDownRight,
+  Send, Reply, CornerDownRight, OctagonX,
 } from "lucide-react";
 import { useNotifications } from "@/hooks/useNotifications";
 
@@ -136,9 +136,10 @@ export default function Mentions() {
                     exit={{ opacity: 0, x: -40 }}
                     transition={{ duration: 0.3, delay: index * 0.04 }}
                     className={`bg-white border rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-200 ${
+                      n.dismissed ? "border-[#E2E8F0] opacity-60" :
                       n.is_read ? "border-[#E2E8F0]" : "border-[#C4B5FD] bg-[#FAFAFE]"
                     }`}
-                    style={{ borderLeftWidth: n.is_read ? "3px" : "3px", borderLeftColor: n.is_read ? "#E2E8F0" : "#7C3AED" }}
+                    style={{ borderLeftWidth: "3px", borderLeftColor: n.dismissed ? "#94A3B8" : n.is_read ? "#E2E8F0" : "#7C3AED" }}
                   >
                     {/* Main content */}
                     <div
@@ -157,12 +158,17 @@ export default function Mentions() {
                             <span className="text-xs text-[#64748B] truncate max-w-[200px] font-medium">
                               {n.task_name}
                             </span>
-                            {!n.is_read && (
+                            {n.dismissed && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[0.625rem] font-medium bg-[#F1F5F9] text-[#94A3B8]">
+                                <OctagonX className="w-2.5 h-2.5" />回复终止
+                              </span>
+                            )}
+                            {!n.is_read && !n.dismissed && (
                               <span className="w-2 h-2 rounded-full bg-[#7C3AED] shrink-0" />
                             )}
                           </div>
                           {/* Note content */}
-                          <p className="text-sm text-[#334155] leading-relaxed">
+                          <p className={`text-sm leading-relaxed ${n.dismissed ? "text-[#94A3B8] line-through" : "text-[#334155]"}`}>
                             {n.note}
                           </p>
                         </div>

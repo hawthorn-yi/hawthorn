@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 
 export interface MyMentionReply {
@@ -24,6 +25,7 @@ export interface MyMention {
   is_read: boolean;
   reply_count: number;
   has_reply: boolean;
+  dismissed: boolean;
   created_at: string;
   replies: MyMentionReply[];
 }
@@ -40,6 +42,7 @@ export interface MyMentionGroup {
   // The first mention's replies (shared across the group)
   replies: MyMentionReply[];
   has_reply: boolean;
+  dismissed: boolean;
 }
 
 export function useMyMentions() {
@@ -53,6 +56,45 @@ export function useMyMentions() {
       const uid = data.session?.user?.id || null;
       setUserId(uid);
     });
+  }, []);
+
+  // Helper: regroup mentions after local state changes
+  const regroup = useCallback((flatMentions: MyMention[]) => {
+    const groupMap = new Map<string, MyMentionGroup>();
+    for (const m of flatMentions) {
+      if (!groupMap.has(m.progress_entry_id)) {
+        groupMap.set(m.progress_entry_id, {
+          progress_entry_id: m.progress_entry_id,
+          task_id: m.task_id,
+          task_name: m.task_name,
+          note: m.note,
+          created_at: m.created_at,
+          mentioned_users: [],
+          replies: [],
+          has_reply: false,
+          dismissed: false,
+        });
+      }
+      const group = groupMap.get(m.progress_entry_id)!;
+      // Dedupe mentioned users
+      if (!group.mentioned_users.includes(m.mentioned_username)) {
+        group.mentioned_users.push(m.mentioned_username);
+      }
+      // Merge replies (same progress_entry_id may have multiple rows)
+      for (const r of m.replies) {
+        if (!group.replies.some((gr) => gr.id === r.id)) {
+          group.replies.push(r);
+        }
+      }
+      if (m.has_reply) group.has_reply = true;
+      if (m.dismissed) group.dismissed = true;
+    }
+
+    // Sort groups by created_at desc
+    const groups = Array.from(groupMap.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    setGroupedMentions(groups);
   }, []);
 
   const fetchMyMentions = useCallback(async () => {
@@ -70,6 +112,7 @@ export function useMyMentions() {
           mentioned_username,
           is_read,
           reply_count,
+          dismissed,
           created_at,
           from_user:from_user_id ( username ),
           to_user:to_user_id ( username ),
@@ -122,6 +165,7 @@ export function useMyMentions() {
         const task = n.task as Record<string, unknown> | null;
         const nid = n.id as string;
         const replyCount = (n.reply_count as number) || 0;
+        const dismissed = (n.dismissed as boolean) || false;
         return {
           id: nid,
           from_user_id: n.from_user_id as string,
@@ -135,54 +179,21 @@ export function useMyMentions() {
           mentioned_username: n.mentioned_username as string,
           is_read: (n.is_read as boolean) || false,
           reply_count: replyCount,
-          has_reply: replyCount > 0,
+          has_reply: replyCount > 0 || dismissed,
+          dismissed,
           created_at: n.created_at as string,
           replies: repliesMap.get(nid) || [],
         };
       });
 
       setMentions(mapped);
-
-      // Group by progress_entry_id so all @'d users in the same note are together
-      const groupMap = new Map<string, MyMentionGroup>();
-      for (const m of mapped) {
-        if (!groupMap.has(m.progress_entry_id)) {
-          groupMap.set(m.progress_entry_id, {
-            progress_entry_id: m.progress_entry_id,
-            task_id: m.task_id,
-            task_name: m.task_name,
-            note: m.note,
-            created_at: m.created_at,
-            mentioned_users: [],
-            replies: [],
-            has_reply: false,
-          });
-        }
-        const group = groupMap.get(m.progress_entry_id)!;
-        // Dedupe mentioned users
-        if (!group.mentioned_users.includes(m.mentioned_username)) {
-          group.mentioned_users.push(m.mentioned_username);
-        }
-        // Merge replies (same progress_entry_id may have multiple rows)
-        for (const r of m.replies) {
-          if (!group.replies.some((gr) => gr.id === r.id)) {
-            group.replies.push(r);
-          }
-        }
-        if (m.has_reply) group.has_reply = true;
-      }
-
-      // Sort groups by created_at desc
-      const groups = Array.from(groupMap.values()).sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-      setGroupedMentions(groups);
+      regroup(mapped);
     } catch (err) {
       console.error("Error fetching my mentions:", err);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, regroup]);
 
   useEffect(() => {
     fetchMyMentions();
@@ -210,11 +221,55 @@ export function useMyMentions() {
       )
       .subscribe();
 
+    // Listen for dismissed updates
+    const dismissChannel = supabase
+      .channel("my-mentions-dismiss")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications", filter: `from_user_id=eq.${userId}` },
+        () => { fetchMyMentions(); }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(notifChannel);
       supabase.removeChannel(replyChannel);
+      supabase.removeChannel(dismissChannel);
     };
   }, [userId, fetchMyMentions]);
+
+  // Dismiss a mention group: mark all notifications with the same progress_entry_id as dismissed
+  const dismissMention = useCallback(async (progressEntryId: string) => {
+    // Find all notification ids for this group
+    const notifIds = mentions
+      .filter((m) => m.progress_entry_id === progressEntryId)
+      .map((m) => m.id);
+
+    if (notifIds.length === 0) return;
+
+    // Optimistic update
+    const updatedMentions = mentions.map((m) =>
+      m.progress_entry_id === progressEntryId
+        ? { ...m, dismissed: true, has_reply: true }
+        : m
+    );
+    setMentions(updatedMentions);
+    regroup(updatedMentions);
+
+    // Update Supabase
+    const { error } = await supabase
+      .from("notifications")
+      .update({ dismissed: true, is_read: true })
+      .in("id", notifIds);
+
+    if (error) {
+      console.error("Failed to dismiss mention:", error);
+      toast.error("操作失败，请重试");
+      // Rollback
+      setMentions(mentions);
+      regroup(mentions);
+    }
+  }, [mentions, regroup]);
 
   const unrepliedCount = groupedMentions.filter((g) => !g.has_reply).length;
   const totalCount = groupedMentions.length;
@@ -225,6 +280,7 @@ export function useMyMentions() {
     loading,
     unrepliedCount,
     totalCount,
+    dismissMention,
     refresh: fetchMyMentions,
   };
 }

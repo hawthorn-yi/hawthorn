@@ -22,8 +22,9 @@ export interface Notification {
   note: string;
   mentioned_username: string;
   is_read: boolean;
-  created_at: string;
   reply_count: number;
+  dismissed: boolean;
+  created_at: string;
   replies: NotificationReply[];
 }
 
@@ -55,6 +56,7 @@ export function useNotifications() {
           mentioned_username,
           is_read,
           reply_count,
+          dismissed,
           created_at,
           from_user:from_user_id ( username ),
           task:task_id ( name )
@@ -115,13 +117,14 @@ export function useNotifications() {
           mentioned_username: n.mentioned_username as string,
           is_read: (n.is_read as boolean) || false,
           reply_count: (n.reply_count as number) || 0,
+          dismissed: (n.dismissed as boolean) || false,
           created_at: n.created_at as string,
           replies: repliesMap.get(n.id as string) || [],
         };
       });
 
       setNotifications(mapped);
-      setUnreadCount(mapped.filter((n) => !n.is_read).length);
+      setUnreadCount(mapped.filter((n) => !n.is_read && !n.dismissed).length);
     } catch (err) {
       console.error("Error fetching notifications:", err);
     } finally {
@@ -156,9 +159,20 @@ export function useNotifications() {
       )
       .subscribe();
 
+    // Listen for dismissed/updated notifications
+    const updateChannel = supabase
+      .channel(`notifications-updates-${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications", filter: `to_user_id=eq.${userId}` },
+        () => { fetchNotifications(); }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(notifChannel);
       supabase.removeChannel(replyChannel);
+      supabase.removeChannel(updateChannel);
     };
   }, [userId, fetchNotifications]);
 
