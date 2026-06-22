@@ -38,7 +38,7 @@ const DEFAULT_FILTERS: AnalyticsFilters = {
 };
 
 export function useAnalytics() {
-  const { tasks, allCategories, loading, refreshData, followUpTasks } = useTaskManager();
+  const { tasks, allCategories, projectMembers, loading, refreshData, followUpTasks } = useTaskManager();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [filters, setFilters] = useState<AnalyticsFilters>(DEFAULT_FILTERS);
 
@@ -79,15 +79,15 @@ export function useAnalytics() {
   }, [tasks, filters]);
 
   // 派生计算
-  const kpi = useMemo(() => calcKpi(filteredTasks, userMapById), [filteredTasks, userMapById]);
+  const kpi = useMemo(() => calcKpi(filteredTasks, userMapById, projectMembers), [filteredTasks, userMapById, projectMembers]);
   const statusDistribution = useMemo(() => calcStatusDistribution(filteredTasks), [filteredTasks]);
   const categoryDistribution = useMemo(
     () => calcCategoryDistribution(filteredTasks, allCategories),
     [filteredTasks, allCategories]
   );
   const employeeStats = useMemo(
-    () => calcEmployeeStats(filteredTasks, userMapById),
-    [filteredTasks, userMapById]
+    () => calcEmployeeStats(filteredTasks, userMapById, projectMembers),
+    [filteredTasks, userMapById, projectMembers]
   );
   // 员工堆叠柱状图：排除管理员（仅展示其他员工）
   const employeeStatsForChart = useMemo(
@@ -97,16 +97,16 @@ export function useAnalytics() {
   const progressDistribution = useMemo(() => calcProgressDistribution(filteredTasks), [filteredTasks]);
   const trendData = useMemo(() => calcTrend(filteredTasks, "month"), [filteredTasks]);
   const deadlineAnalysis = useMemo(
-    () => calcDeadlineAnalysis(filteredTasks, userMapById),
-    [filteredTasks, userMapById]
+    () => calcDeadlineAnalysis(filteredTasks, userMapById, projectMembers),
+    [filteredTasks, userMapById, projectMembers]
   );
   const ganttByEmployee = useMemo(
-    () => groupTasksForGantt(filteredTasks, userMapById, allCategories, "employee"),
-    [filteredTasks, userMapById, allCategories]
+    () => groupTasksForGantt(filteredTasks, userMapById, allCategories, projectMembers, "employee"),
+    [filteredTasks, userMapById, allCategories, projectMembers]
   );
   const ganttByCategory = useMemo(
-    () => groupTasksForGantt(filteredTasks, userMapById, allCategories, "category"),
-    [filteredTasks, userMapById, allCategories]
+    () => groupTasksForGantt(filteredTasks, userMapById, allCategories, projectMembers, "category"),
+    [filteredTasks, userMapById, allCategories, projectMembers]
   );
 
   const updateFilter = useCallback(
@@ -121,8 +121,8 @@ export function useAnalytics() {
   }, []);
 
   const handleExportExcel = useCallback(() => {
-    exportAnalyticsExcel(filteredTasks, allCategories, userMapById, kpi);
-  }, [filteredTasks, allCategories, userMapById, kpi]);
+    exportAnalyticsExcel(filteredTasks, allCategories, userMapById, projectMembers, kpi);
+  }, [filteredTasks, allCategories, userMapById, projectMembers, kpi]);
 
   return {
     tasks: filteredTasks,

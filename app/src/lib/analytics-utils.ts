@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import type { Task, CustomCategory } from "@/types";
+import type { Task, CustomCategory, ProjectMember } from "@/types";
 
 // ─── 从员工维度排除的管理员用户名 ───
 // kevin 在部分图表中排除，但在负载表和甘特图员工模式中保留
@@ -46,14 +46,25 @@ export function isDueSoon(task: Task): boolean {
   return days >= 0 && days <= 7;
 }
 
-// ─── 用户名解析 ───
-export function resolveAssignee(task: Task, userMapById: Map<string, string>): string {
-  return (
-    task.assignee_username ||
-    userMapById.get(task.assignee_id || "") ||
-    userMapById.get(task.owner_id || "") ||
-    "未指派"
-  );
+// ─── 任务关联用户解析 ───
+/** 获取任务关联的所有用户（基于 projectMembers 表） */
+export function resolveTaskUsers(task: Task, members: ProjectMember[], userMapById: Map<string, string>): string[] {
+  const names = new Set<string>();
+  // 从 projectMembers 表获取（包含 owner 和 member 角色）
+  const taskMembers = members.filter((m) => m.task_id === task.id);
+  taskMembers.forEach((m) => {
+    if (m.username && m.username !== "未知用户") names.add(m.username);
+  });
+  // 补充 assignee（可能不在 members 表中）
+  if (task.assignee_username) names.add(task.assignee_username);
+  // 如果以上都没找到，尝试用 owner_id 查找
+  if (names.size === 0 && task.owner_id) {
+    const ownerName = userMapById.get(task.owner_id);
+    if (ownerName) names.add(ownerName);
+  }
+  // 兜底
+  if (names.size === 0) names.add("未指派");
+  return Array.from(names);
 }
 
 // ─── KPI 计算 ───
@@ -69,7 +80,7 @@ export interface KpiData {
   kevinOnlyCount: number;
 }
 
-export function calcKpi(tasks: Task[], userMapById: Map<string, string>): KpiData {
+export function calcKpi(tasks: Task[], userMapById: Map<string, string>, members: ProjectMember[]): KpiData {
   const total = tasks.length;
   const active = tasks.filter((t) => t.status === "active").length;
   const completed = tasks.filter((t) => t.status === "completed").length;
@@ -81,11 +92,13 @@ export function calcKpi(tasks: Task[], userMapById: Map<string, string>): KpiDat
   const employeeNames = new Set<string>();
   let kevinCount = 0;
   tasks.forEach((t) => {
-    const name = resolveAssignee(t, userMapById);
-    if (name !== "未指派") {
-      if (isAdmin(name)) kevinCount++;
-      else employeeNames.add(name);
-    }
+    const names = resolveTaskUsers(t, members, userMapById);
+    names.forEach((name) => {
+      if (name !== "未指派") {
+        if (isAdmin(name)) kevinCount++;
+        else employeeNames.add(name);
+      }
+    });
   });
 
   return {
@@ -135,12 +148,14 @@ export interface EmployeeStat {
   completionRate: number;
 }
 
-export function calcEmployeeStats(tasks: Task[], userMapById: Map<string, string>): EmployeeStat[] {
+export function calcEmployeeStats(tasks: Task[], userMapById: Map<string, string>, members: ProjectMember[]): EmployeeStat[] {
   const map = new Map<string, Task[]>();
   tasks.forEach((t) => {
-    const name = resolveAssignee(t, userMapById);
-    if (!map.has(name)) map.set(name, []);
-    map.get(name)!.push(t);
+    const names = resolveTaskUsers(t, members, userMapById);
+    names.forEach((name) => {
+      if (!map.has(name)) map.set(name, []);
+      map.get(name)!.push(t);
+    });
   });
 
   const stats: EmployeeStat[] = [];
@@ -223,17 +238,18 @@ export interface DeadlineStat {
   normal: number;
 }
 
-export function calcDeadlineAnalysis(tasks: Task[], userMapById: Map<string, string>): DeadlineStat[] {
+export function calcDeadlineAnalysis(tasks: Task[], userMapById: Map<string, string>, members: ProjectMember[]): DeadlineStat[] {
   const map = new Map<string, DeadlineStat>();
 
   tasks.forEach((t) => {
-    const name = resolveAssignee(t, userMapById);
-    if (!map.has(name)) map.set(name, { name, dueSoon: 0, overdue: 0, normal: 0 });
-    const entry = map.get(name)!;
-
-    if (t.status === "overdue") entry.overdue++;
-    else if (isDueSoon(t)) entry.dueSoon++;
-    else if (t.status !== "terminated") entry.normal++;
+    const names = resolveTaskUsers(t, members, userMapById);
+    names.forEach((name) => {
+      if (!map.has(name)) map.set(name, { name, dueSoon: 0, overdue: 0, normal: 0 });
+      const entry = map.get(name)!;
+      if (t.status === "overdue") entry.overdue++;
+      else if (isDueSoon(t)) entry.dueSoon++;
+      else if (t.status !== "terminated") entry.normal++;
+    });
   });
 
   return Array.from(map.values())
@@ -252,17 +268,20 @@ export function groupTasksForGantt(
   tasks: Task[],
   userMapById: Map<string, string>,
   categories: CustomCategory[],
+  members: ProjectMember[],
   mode: "employee" | "category"
 ): GanttGroup[] {
   if (mode === "employee") {
-    const map = new Map<string, Task[]>();
+    const map = new Map<string, Set<Task>>();
     tasks.forEach((t) => {
-      const name = resolveAssignee(t, userMapById);
-      if (!map.has(name)) map.set(name, []);
-      map.get(name)!.push(t);
+      const names = resolveTaskUsers(t, members, userMapById);
+      names.forEach((name) => {
+        if (!map.has(name)) map.set(name, new Set());
+        map.get(name)!.add(t);
+      });
     });
     return Array.from(map.entries())
-      .map(([name, taskList]) => ({ name, tasks: taskList }))
+      .map(([name, taskSet]) => ({ name, tasks: Array.from(taskSet) }))
       .sort((a, b) => b.tasks.length - a.tasks.length);
   }
 
@@ -286,6 +305,7 @@ export function exportAnalyticsExcel(
   tasks: Task[],
   categories: CustomCategory[],
   userMapById: Map<string, string>,
+  members: ProjectMember[],
   kpi: KpiData
 ) {
   const today = new Date().toISOString().split("T")[0];
@@ -311,7 +331,7 @@ export function exportAnalyticsExcel(
       分类: cat?.name || t.category,
       状态: STATUS_CONFIG[t.status].label,
       "进度(%)": t.progress,
-      负责人: resolveAssignee(t, userMapById),
+      负责人: resolveTaskUsers(t, members, userMapById).join(", "),
       创建日期: t.createdDate,
       截止日期: t.deadline,
       更新记录数: t.history.length,
@@ -319,7 +339,7 @@ export function exportAnalyticsExcel(
   });
 
   // Sheet 3: 员工负载
-  const employeeStats = calcEmployeeStats(tasks, userMapById);
+  const employeeStats = calcEmployeeStats(tasks, userMapById, members);
   const employeeRows = employeeStats.map((s) => ({
     员工: s.name,
     总任务: s.total,
