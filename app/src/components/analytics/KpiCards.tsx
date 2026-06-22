@@ -8,6 +8,7 @@ import {
   TrendingUp,
   Clock,
   Users,
+  Shield,
 } from "lucide-react";
 import type { KpiData } from "@/hooks/useAnalytics";
 
@@ -24,11 +25,12 @@ const KPI_ITEMS = [
   { key: "avgProgress", label: "平均进度", icon: TrendingUp, bg: "#F5F3FF", color: "#8B5CF6", suffix: "%" },
   { key: "dueSoon", label: "即将到期", icon: Clock, bg: "#FFFBEB", color: "#F59E0B" },
   { key: "employeeCount", label: "参与员工", icon: Users, bg: "#EFF6FF", color: "#3B82F6" },
+  { key: "kevinOnlyCount", label: "管理员项目", icon: Shield, bg: "#FFF7ED", color: "#EA580C" },
 ] as const;
 
 export default function KpiCards({ kpi }: KpiCardsProps) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3 mb-6">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2 sm:gap-3 mb-6">
       {KPI_ITEMS.map((item, i) => {
         const Icon = item.icon;
         const value = kpi[item.key as keyof KpiData];

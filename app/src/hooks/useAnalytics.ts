@@ -89,6 +89,11 @@ export function useAnalytics() {
     () => calcEmployeeStats(filteredTasks, userMapById),
     [filteredTasks, userMapById]
   );
+  // 员工堆叠柱状图：排除管理员（仅展示其他员工）
+  const employeeStatsForChart = useMemo(
+    () => employeeStats.filter((s) => s.name.toLowerCase() !== "kevin"),
+    [employeeStats]
+  );
   const progressDistribution = useMemo(() => calcProgressDistribution(filteredTasks), [filteredTasks]);
   const trendData = useMemo(() => calcTrend(filteredTasks, "month"), [filteredTasks]);
   const deadlineAnalysis = useMemo(
@@ -132,6 +137,7 @@ export function useAnalytics() {
     statusDistribution,
     categoryDistribution,
     employeeStats,
+    employeeStatsForChart,
     progressDistribution,
     trendData,
     deadlineAnalysis,

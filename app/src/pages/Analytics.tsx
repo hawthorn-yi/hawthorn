@@ -25,6 +25,7 @@ export default function Analytics() {
     statusDistribution,
     categoryDistribution,
     employeeStats,
+    employeeStatsForChart,
     progressDistribution,
     trendData,
     deadlineAnalysis,
@@ -81,7 +82,7 @@ export default function Analytics() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <StatusPieChart data={statusDistribution} total={kpi.total} />
           <CategoryPieChart data={categoryDistribution} />
-          <EmployeeTaskBarChart data={employeeStats} />
+          <EmployeeTaskBarChart data={employeeStatsForChart} />
           <ProgressDistributionChart data={progressDistribution} />
 
           <div className="lg:col-span-2">

@@ -1,6 +1,14 @@
 import * as XLSX from "xlsx";
 import type { Task, CustomCategory } from "@/types";
 
+// ─── 从员工维度排除的管理员用户名 ───
+// kevin 在部分图表中排除，但在负载表和甘特图员工模式中保留
+const ADMIN_USERNAMES = new Set(["kevin"]);
+
+function isAdmin(name: string): boolean {
+  return ADMIN_USERNAMES.has(name.toLowerCase());
+}
+
 // ─── 状态配置 ───
 export const STATUS_CONFIG = {
   active: { label: "进行中", color: "#3B82F6", bg: "#EFF6FF" },
@@ -58,6 +66,7 @@ export interface KpiData {
   avgProgress: number;
   dueSoon: number;
   employeeCount: number;
+  kevinOnlyCount: number;
 }
 
 export function calcKpi(tasks: Task[], userMapById: Map<string, string>): KpiData {
@@ -70,9 +79,13 @@ export function calcKpi(tasks: Task[], userMapById: Map<string, string>): KpiDat
   const dueSoon = tasks.filter(isDueSoon).length;
 
   const employeeNames = new Set<string>();
+  let kevinCount = 0;
   tasks.forEach((t) => {
     const name = resolveAssignee(t, userMapById);
-    if (name !== "未指派") employeeNames.add(name);
+    if (name !== "未指派") {
+      if (isAdmin(name)) kevinCount++;
+      else employeeNames.add(name);
+    }
   });
 
   return {
@@ -84,6 +97,7 @@ export function calcKpi(tasks: Task[], userMapById: Map<string, string>): KpiDat
     avgProgress,
     dueSoon,
     employeeCount: employeeNames.size,
+    kevinOnlyCount: kevinCount,
   };
 }
 
@@ -223,7 +237,7 @@ export function calcDeadlineAnalysis(tasks: Task[], userMapById: Map<string, str
   });
 
   return Array.from(map.values())
-    .filter((d) => d.dueSoon > 0 || d.overdue > 0)
+    .filter((d) => d.name !== "kevin" && (d.dueSoon > 0 || d.overdue > 0))
     .sort((a, b) => b.overdue + b.dueSoon - (a.overdue + a.dueSoon));
 }
 
@@ -286,6 +300,7 @@ export function exportAnalyticsExcel(
     { 指标: "平均进度(%)", 数值: kpi.avgProgress },
     { 指标: "即将到期(7天内)", 数值: kpi.dueSoon },
     { 指标: "参与员工数", 数值: kpi.employeeCount },
+    { 指标: "管理员项目", 数值: kpi.kevinOnlyCount },
   ];
 
   // Sheet 2: 任务明细
