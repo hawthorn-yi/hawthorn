@@ -7,6 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  LabelList,
 } from "recharts";
 import { Inbox } from "lucide-react";
 import type { EmployeeStat } from "@/hooks/useAnalytics";
@@ -38,6 +39,7 @@ export default function EmployeeTaskBarChart({ data }: EmployeeTaskBarChartProps
     已完成: s.completed,
     已逾期: s.overdue,
     已终止: s.terminated,
+    total: s.total,
   }));
 
   return (
@@ -63,7 +65,9 @@ export default function EmployeeTaskBarChart({ data }: EmployeeTaskBarChartProps
             <Bar dataKey="进行中" stackId="a" fill={STATUS_COLORS.active} radius={[0, 0, 0, 0]} />
             <Bar dataKey="已完成" stackId="a" fill={STATUS_COLORS.completed} radius={[0, 0, 0, 0]} />
             <Bar dataKey="已逾期" stackId="a" fill={STATUS_COLORS.overdue} radius={[0, 0, 0, 0]} />
-            <Bar dataKey="已终止" stackId="a" fill={STATUS_COLORS.terminated} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="已终止" stackId="a" fill={STATUS_COLORS.terminated} radius={[0, 4, 4, 0]}>
+              <LabelList dataKey="total" position="right" style={{ fontSize: 11, fill: "#64748B", fontWeight: 600 }} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>

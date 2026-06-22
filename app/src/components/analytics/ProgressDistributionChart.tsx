@@ -7,6 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  LabelList,
 } from "recharts";
 import { Inbox } from "lucide-react";
 
@@ -55,6 +56,7 @@ export default function ProgressDistributionChart({ data }: ProgressDistribution
               {data.map((entry) => (
                 <Cell key={entry.range} fill={entry.color} />
               ))}
+              <LabelList dataKey="count" position="top" style={{ fontSize: 11, fill: "#64748B", fontWeight: 600 }} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>

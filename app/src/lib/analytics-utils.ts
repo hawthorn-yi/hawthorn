@@ -62,8 +62,6 @@ export function resolveTaskUsers(task: Task, members: ProjectMember[], userMapBy
     const ownerName = userMapById.get(task.owner_id);
     if (ownerName) names.add(ownerName);
   }
-  // 兜底
-  if (names.size === 0) names.add("未指派");
   return Array.from(names);
 }
 
@@ -94,10 +92,8 @@ export function calcKpi(tasks: Task[], userMapById: Map<string, string>, members
   tasks.forEach((t) => {
     const names = resolveTaskUsers(t, members, userMapById);
     names.forEach((name) => {
-      if (name !== "未指派") {
         if (isAdmin(name)) kevinCount++;
         else employeeNames.add(name);
-      }
     });
   });
 
@@ -281,7 +277,18 @@ export function groupTasksForGantt(
       });
     });
     return Array.from(map.entries())
-      .map(([name, taskSet]) => ({ name, tasks: Array.from(taskSet) }))
+      .map(([name, taskSet]) => {
+        let tasks = Array.from(taskSet);
+        // kevin 只展示他独自参与的项目（只有他一个成员、无其他指派者）
+        if (isAdmin(name)) {
+          tasks = tasks.filter((t) => {
+            const taskUsers = resolveTaskUsers(t, members, userMapById);
+            // 只有 kevin 一人关联
+            return taskUsers.length === 1 && isAdmin(taskUsers[0]);
+          });
+        }
+        return { name, tasks };
+      })
       .sort((a, b) => b.tasks.length - a.tasks.length);
   }
 

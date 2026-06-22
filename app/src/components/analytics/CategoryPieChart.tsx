@@ -41,8 +41,8 @@ export default function CategoryPieChart({ data }: CategoryPieChartProps) {
               outerRadius={90}
               paddingAngle={2}
               dataKey="value"
-              label={({ name, percent }) =>
-                percent && percent > 0.08 ? `${name} ${Math.round(percent * 100)}%` : ""
+              label={({ name, value }) =>
+                `${name} ${value}`
               }
               labelLine={false}
               style={{ fontSize: 11 }}
