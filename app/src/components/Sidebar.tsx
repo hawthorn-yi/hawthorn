@@ -15,6 +15,7 @@ import {
   ClipboardList,
   AtSign,
   Forward,
+  BarChart3,
 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -40,6 +41,7 @@ const navItems = [
 
 const adminNavItems = [
   { path: "/settings", label: "系统设置", icon: Settings },
+  { path: "/analytics", label: "数据看板", icon: BarChart3 },
 ];
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose, isMobile, isAdmin, followUpCount = 0, mentionCount = 0, myMentionCount = 0 }: SidebarProps) {

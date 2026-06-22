@@ -10,6 +10,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const Admin = lazy(() => import("./pages/Admin"));
+const Analytics = lazy(() => import("./pages/Analytics"));
 const Account = lazy(() => import("./pages/Account"));
 const FollowUp = lazy(() => import("./pages/FollowUp"));
 const Mentions = lazy(() => import("./pages/Mentions"));
@@ -86,6 +87,14 @@ export default function App() {
         element={
           <AdminRoute>
             <Admin />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <AdminRoute>
+            <Analytics />
           </AdminRoute>
         }
       />
