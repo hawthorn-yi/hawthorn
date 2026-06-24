@@ -108,13 +108,18 @@ export async function getAllUsers(): Promise<AppUser[]> {
   // 如果 RPC 函数不存在则降级使用 user_roles.updated_at
   let lastLoginMap = new Map<string, string>();
   try {
-    const { data: loginData } = await supabase.rpc("get_user_last_logins_secure");
+    const { data: loginData, error: rpcError } = await supabase.rpc("get_user_last_logins_secure");
+    if (rpcError) {
+      console.warn("[Analytics] RPC get_user_last_logins_secure failed:", rpcError.message);
+    }
     if (loginData && Array.isArray(loginData)) {
       loginData.forEach((item: { user_id: string; last_sign_in_at: string }) => {
         if (item.last_sign_in_at) lastLoginMap.set(item.user_id, item.last_sign_in_at);
       });
     }
-  } catch { /* RPC not available, fallback to updated_at */ }
+  } catch (e) {
+    console.warn("[Analytics] RPC call error:", e);
+  }
 
   return (roles || []).map((r) => ({
     id: r.user_id,
