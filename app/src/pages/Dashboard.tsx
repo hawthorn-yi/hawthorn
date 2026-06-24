@@ -614,7 +614,25 @@ export default function Dashboard() {
   }, [tasks]);
 
   const terminatedTasks = useMemo(() => {
-    const result = tasks.filter((t) => t.status === "terminated");
+    let result = tasks.filter((t) => t.status === "terminated");
+    // Apply search filter
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter((t) => t.name.toLowerCase().includes(q));
+    }
+    // Apply category filter
+    if (categoryFilter) {
+      result = result.filter((t) => t.category === categoryFilter);
+    }
+    // Apply user filter (admin)
+    if (selectedUserUsername) {
+      result = result.filter((t) => {
+        const memberNames = projectMembers
+          .filter((m) => m.task_id === t.id)
+          .map((m) => m.username);
+        return memberNames.includes(selectedUserUsername);
+      });
+    }
     if (sortBy === "latest-update") {
       result.sort((a, b) => {
         const aLatest = a.history.length > 0 ? new Date(a.history[a.history.length - 1].timestamp).getTime() : new Date(a.createdDate).getTime();
@@ -623,9 +641,27 @@ export default function Dashboard() {
       });
     }
     return result;
-  }, [tasks, sortBy]);
+  }, [tasks, sortBy, search, categoryFilter, projectMembers, selectedUserUsername]);
   const completedTasks = useMemo(() => {
-    const result = tasks.filter((t) => t.status === "completed");
+    let result = tasks.filter((t) => t.status === "completed");
+    // Apply search filter
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter((t) => t.name.toLowerCase().includes(q));
+    }
+    // Apply category filter
+    if (categoryFilter) {
+      result = result.filter((t) => t.category === categoryFilter);
+    }
+    // Apply user filter (admin)
+    if (selectedUserUsername) {
+      result = result.filter((t) => {
+        const memberNames = projectMembers
+          .filter((m) => m.task_id === t.id)
+          .map((m) => m.username);
+        return memberNames.includes(selectedUserUsername);
+      });
+    }
     if (sortBy === "latest-update") {
       result.sort((a, b) => {
         const aLatest = a.history.length > 0 ? new Date(a.history[a.history.length - 1].timestamp).getTime() : new Date(a.createdDate).getTime();
@@ -634,7 +670,7 @@ export default function Dashboard() {
       });
     }
     return result;
-  }, [tasks, sortBy]);
+  }, [tasks, sortBy, search, categoryFilter, projectMembers, selectedUserUsername]);
 
   // Filtered & sorted
   const filteredTasks = useMemo(() => {
@@ -649,7 +685,8 @@ export default function Dashboard() {
     } else if (filter === "terminated") {
       result = result.filter((t) => t.status === "terminated");
     } else {
-      // "全部": show all tasks including terminated
+      // "全部": show active + overdue only, completed/terminated are in collapsed sections
+      result = result.filter((t) => t.status === "active" || t.status === "overdue");
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -1300,8 +1337,8 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Terminated Projects - only show when filter is "all" */}
-                {filter === "all" && terminatedTasks.length > 0 && (
+                {/* Terminated Projects - hide when filtering by terminated (already shown in main list) */}
+                {terminatedTasks.length > 0 && filter !== "terminated" && (
                   <div className="mt-4">
                     <button onClick={() => setShowTerminated(!showTerminated)}
                       className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-sm text-[#64748B] hover:bg-[#F1F5F9] hover:border-[#CBD5E1] transition-all duration-200 cursor-pointer w-full">
