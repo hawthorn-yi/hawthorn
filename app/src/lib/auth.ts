@@ -113,8 +113,8 @@ export async function getAllUsers(): Promise<AppUser[]> {
       console.warn("[Analytics] RPC get_user_last_logins_secure failed:", rpcError.message);
     }
     if (loginData && Array.isArray(loginData)) {
-      loginData.forEach((item: { user_id: string; last_sign_in_at: string }) => {
-        if (item.last_sign_in_at) lastLoginMap.set(item.user_id, item.last_sign_in_at);
+      loginData.forEach((item: { uid: string; last_signin: string }) => {
+        if (item.last_signin) lastLoginMap.set(item.uid, item.last_signin);
       });
     }
   } catch (e) {

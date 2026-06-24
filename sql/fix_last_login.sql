@@ -1,19 +1,22 @@
 -- ============================================================
--- 修复：用户最后登录时间显示不正确（修正版，解决列名歧义）
+-- 修复：用户最后登录时间（修正版 v3，彻底消除列名歧义）
 -- 在 Supabase SQL Editor 中运行一次:
 -- https://todyqybjiwgnxfevqisl.supabase.co → SQL Editor
 -- ============================================================
 
--- 1. 重新创建函数（使用表别名 au 消除列名歧义）
-CREATE OR REPLACE FUNCTION get_user_last_logins_secure()
-RETURNS TABLE (user_id UUID, last_sign_in_at TIMESTAMPTZ)
+-- 1. 先删除旧函数
+DROP FUNCTION IF EXISTS get_user_last_logins_secure();
+
+-- 2. 重新创建（所有列引用都加表别名，彻底消除歧义）
+CREATE FUNCTION get_user_last_logins_secure()
+RETURNS TABLE (uid UUID, last_signin TIMESTAMPTZ)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = 'public'
 AS $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'
+    SELECT 1 FROM user_roles ur WHERE ur.user_id = auth.uid() AND ur.role = 'admin'
   ) THEN
     RAISE EXCEPTION 'Permission denied: admin only';
   END IF;
@@ -21,15 +24,8 @@ BEGIN
 END;
 $$;
 
--- 2. 授权
+-- 3. 授权
 GRANT EXECUTE ON FUNCTION get_user_last_logins_secure() TO AUTHENTICATED;
-
--- 3. 允许用户更新自己的 user_roles（登录时刷新 updated_at）
-DROP POLICY IF EXISTS "user_update_own_role" ON user_roles;
-CREATE POLICY "user_update_own_role" ON user_roles
-  FOR UPDATE
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
 
 -- 4. 验证
 SELECT '修复完成' AS status;

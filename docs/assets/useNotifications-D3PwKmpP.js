@@ -1,4 +1,4 @@
-import{r as a}from"./react-vendor-yb0GR-CG.js";import{s as t}from"./index-BfVsU-EJ.js";import{p as T,r as L}from"./mentions-D2QUZTi4.js";function z(){const[w,y]=a.useState([]),[v,I]=a.useState(!0),[M,h]=a.useState(0),[s,$]=a.useState(null);a.useEffect(()=>{t.auth.getSession().then(async({data:r})=>{const o=r.session?.user?.id||null;$(o)})},[]);const l=a.useCallback(async()=>{if(s)try{const{data:r,error:o}=await t.from("notifications").select(`
+import{r as a}from"./react-vendor-yb0GR-CG.js";import{s as t}from"./index-D6BPdwHU.js";import{p as T,r as L}from"./mentions-D2QUZTi4.js";function z(){const[w,y]=a.useState([]),[v,I]=a.useState(!0),[M,h]=a.useState(0),[s,$]=a.useState(null);a.useEffect(()=>{t.auth.getSession().then(async({data:r})=>{const o=r.session?.user?.id||null;$(o)})},[]);const l=a.useCallback(async()=>{if(s)try{const{data:r,error:o}=await t.from("notifications").select(`
           id,
           from_user_id,
           to_user_id,
