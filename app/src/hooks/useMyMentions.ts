@@ -114,8 +114,8 @@ export function useMyMentions() {
           reply_count,
           dismissed,
           created_at,
-          from_user:from_user_id ( username ),
-          to_user:to_user_id ( username ),
+          from_user:from_user_id ( display_name ),
+          to_user:to_user_id ( display_name ),
           task:task_id ( name )
         `)
         .eq("from_user_id", userId)
@@ -139,7 +139,7 @@ export function useMyMentions() {
             notification_id,
             content,
             created_at,
-            from_user:from_user_id ( username )
+            from_user:from_user_id ( display_name )
           `)
           .in("notification_id", notifIds)
           .order("created_at", { ascending: true });
@@ -152,7 +152,7 @@ export function useMyMentions() {
           repliesMap.get(notifId)!.push({
             id: reply.id as string,
             notification_id: notifId,
-            from_username: (fromUser?.username as string) || "未知",
+            from_username: (fromUser?.display_name as string) || "未知",
             content: reply.content as string,
             created_at: reply.created_at as string,
           });
@@ -169,9 +169,9 @@ export function useMyMentions() {
         return {
           id: nid,
           from_user_id: n.from_user_id as string,
-          from_username: (fromUser?.username as string) || (n.mentioned_username as string),
+          from_username: (fromUser?.display_name as string) || (n.mentioned_username as string),
           to_user_id: n.to_user_id as string,
-          to_username: (toUser?.username as string) || "未知",
+          to_username: (toUser?.display_name as string) || "未知",
           task_id: n.task_id as string,
           task_name: (task?.name as string) || "未知任务",
           progress_entry_id: n.progress_entry_id as string,
