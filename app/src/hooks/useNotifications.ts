@@ -58,7 +58,7 @@ export function useNotifications() {
           reply_count,
           dismissed,
           created_at,
-          from_user:from_user_id ( username ),
+          from_user:from_user_id ( display_name ),
           task:task_id ( name )
         `)
         .eq("to_user_id", userId)
@@ -82,7 +82,7 @@ export function useNotifications() {
             notification_id,
             content,
             created_at,
-            from_user:from_user_id ( username )
+            from_user:from_user_id ( display_name )
           `)
           .in("notification_id", notifIds)
           .order("created_at", { ascending: true });
@@ -95,7 +95,7 @@ export function useNotifications() {
           repliesMap.get(notifId)!.push({
             id: reply.id as string,
             notification_id: notifId,
-            from_username: (fromUser?.username as string) || "未知",
+            from_username: (fromUser?.display_name as string) || "未知",
             content: reply.content as string,
             created_at: reply.created_at as string,
           });
@@ -108,7 +108,7 @@ export function useNotifications() {
         return {
           id: n.id as string,
           from_user_id: n.from_user_id as string,
-          from_username: (fromUser?.username as string) || (n.mentioned_username as string),
+          from_username: (fromUser?.display_name as string) || (n.mentioned_username as string),
           to_user_id: n.to_user_id as string,
           task_id: n.task_id as string,
           task_name: (task?.name as string) || "未知任务",
@@ -214,11 +214,11 @@ export function useNotifications() {
       try {
         const { data: userRole } = await supabase
           .from("user_roles")
-          .select("username")
+          .select("display_name")
           .eq("user_id", fromUserId)
           .single();
-        if (userRole?.username) {
-          fromUsername = userRole.username;
+        if (userRole?.display_name) {
+          fromUsername = userRole.display_name;
         }
       } catch {
         // fallback to "用户"
@@ -303,12 +303,12 @@ export function useNotifications() {
         // Build user map for mention resolution
         const { data: allUsers } = await supabase
           .from("user_roles")
-          .select("user_id, username");
+          .select("user_id, display_name");
         const userMap = new Map<string, string>();
         for (const u of (allUsers || [])) {
-          if (u.username) {
-            userMap.set(u.username.toLowerCase(), u.user_id);
-            userMap.set(u.username, u.user_id);
+          if (u.display_name) {
+            userMap.set(u.display_name.toLowerCase(), u.user_id);
+            userMap.set(u.display_name, u.user_id);
           }
         }
         const resolved = resolveMentions(mentions, userMap);
