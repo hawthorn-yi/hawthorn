@@ -392,6 +392,8 @@ export default function Dashboard() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [deleteTaskData, setDeleteTaskData] = useState<Task | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
 
   // Modal form
   const [formName, setFormName] = useState("");
@@ -859,6 +861,7 @@ export default function Dashboard() {
   };
 
   const handleSaveTask = async () => {
+    if (isSavingRef.current) return;
     const newErrors: { name?: string; deadline?: string; members?: string } = {};
     if (!formName.trim()) newErrors.name = "请输入项目名称";
     if (!formDeadline) newErrors.deadline = "请选择截止日期";
@@ -874,69 +877,76 @@ export default function Dashboard() {
       return;
     }
 
-    if (editingTask) {
-      let finalProgress = formProgress;
-      const hasNote = formNote.trim() !== "";
-      const progressUnchanged = formProgress === editingTask.progress;
-      if (hasNote && progressUnchanged) {
-        finalProgress = Math.min(100, editingTask.progress + 5);
-      }
-      updateTask(editingTask.id, {
-        name: formName.trim(),
-        category: formCategory,
-        createdDate: formCreated,
-        deadline: formDeadline,
-        progress: finalProgress,
-        note: formNote,
-        assigneeId: formAssigneeId || null,
-        assigneeUsername: formAssigneeId
-          ? (allUsers.find(u => u.id === formAssigneeId)?.username || editingTask.assignee_username || undefined)
-          : null,
-      });
-
-      // Sync members: add newly selected, remove deselected
-      // Fetch real members from Supabase to avoid stale cache issues
-      const { data: realMembers } = await supabase
-        .from("project_members")
-        .select("id, user_id, role")
-        .eq("task_id", editingTask.id);
-      
-      const existingMemberIds = (realMembers || [])
-        .filter((m: Record<string, unknown>) => m.role !== "owner")
-        .map((m: Record<string, unknown>) => m.user_id as string);
-
-      // Add new members
-      for (const id of selectedMemberIds) {
-        if (!existingMemberIds.includes(id)) {
-          await addProjectMember(editingTask.id, id, "member");
+    isSavingRef.current = true;
+    setIsSaving(true);
+    try {
+      if (editingTask) {
+        let finalProgress = formProgress;
+        const hasNote = formNote.trim() !== "";
+        const progressUnchanged = formProgress === editingTask.progress;
+        if (hasNote && progressUnchanged) {
+          finalProgress = Math.min(100, editingTask.progress + 5);
         }
-      }
-      // Remove deselected members - use direct Supabase call to bypass stale cache
-      for (const member of (realMembers || [])) {
-        const m = member as Record<string, unknown>;
-        if (m.role !== "owner" && !selectedMemberIds.includes(m.user_id as string)) {
-          await supabase.from("project_members").delete().eq("id", m.id as string);
-          // Also update via hook to keep cache in sync
-          await removeProjectMember(m.id as string);
-        }
-      }
+        updateTask(editingTask.id, {
+          name: formName.trim(),
+          category: formCategory,
+          createdDate: formCreated,
+          deadline: formDeadline,
+          progress: finalProgress,
+          note: formNote,
+          assigneeId: formAssigneeId || null,
+          assigneeUsername: formAssigneeId
+            ? (allUsers.find(u => u.id === formAssigneeId)?.username || editingTask.assignee_username || undefined)
+            : null,
+        });
 
-      toast.success("任务已更新");
-    } else {
-      await addTask({
-        name: formName.trim(),
-        category: formCategory,
-        createdDate: formCreated,
-        deadline: formDeadline,
-        progress: formProgress,
-        note: formNote,
-        memberIds: selectedMemberIds,
-        assigneeId: formAssigneeId || undefined,
-        assigneeUsername: formAssigneeId || undefined,
-      });
-      toast.success("任务已创建");
+        // Sync members: add newly selected, remove deselected
+        // Fetch real members from Supabase to avoid stale cache issues
+        const { data: realMembers } = await supabase
+          .from("project_members")
+          .select("id, user_id, role")
+          .eq("task_id", editingTask.id);
+
+        const existingMemberIds = (realMembers || [])
+          .filter((m: Record<string, unknown>) => m.role !== "owner")
+          .map((m: Record<string, unknown>) => m.user_id as string);
+
+        // Add new members
+        for (const id of selectedMemberIds) {
+          if (!existingMemberIds.includes(id)) {
+            await addProjectMember(editingTask.id, id, "member");
+          }
+        }
+        // Remove deselected members - use direct Supabase call to bypass stale cache
+        for (const member of (realMembers || [])) {
+          const m = member as Record<string, unknown>;
+          if (m.role !== "owner" && !selectedMemberIds.includes(m.user_id as string)) {
+            await supabase.from("project_members").delete().eq("id", m.id as string);
+            // Also update via hook to keep cache in sync
+            await removeProjectMember(m.id as string);
+          }
+        }
+
+        toast.success("任务已更新");
+      } else {
+        await addTask({
+          name: formName.trim(),
+          category: formCategory,
+          createdDate: formCreated,
+          deadline: formDeadline,
+          progress: formProgress,
+          note: formNote,
+          memberIds: selectedMemberIds,
+          assigneeId: formAssigneeId || undefined,
+          assigneeUsername: formAssigneeId || undefined,
+        });
+        toast.success("任务已创建");
+      }
+      setModalOpen(false);
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
     }
-    setModalOpen(false);
   };
 
   const handleDelete = (task: Task) => {
@@ -1638,8 +1648,14 @@ export default function Dashboard() {
               <div className="flex justify-end gap-3 ml-auto">
                 <button onClick={() => setModalOpen(false)}
                   className="px-5 py-2 bg-[#F1F5F9] text-[#334155] text-sm font-medium rounded-lg h-10 hover:bg-[#E2E8F0] transition-colors cursor-pointer">取消</button>
-                <motion.button whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }} onClick={handleSaveTask}
-                  className="px-5 py-2 bg-[#3B82F6] text-white text-sm font-semibold rounded-lg h-10 hover:bg-[#60A5FA] transition-colors shadow-[0_4px_12px_rgba(59,130,246,0.3)] cursor-pointer">保存</motion.button>
+                <motion.button
+                  whileHover={isSaving ? undefined : { scale: 1.02, y: -1 }}
+                  whileTap={isSaving ? undefined : { scale: 0.98 }}
+                  onClick={handleSaveTask}
+                  disabled={isSaving}
+                  className="px-5 py-2 bg-[#3B82F6] text-white text-sm font-semibold rounded-lg h-10 hover:bg-[#60A5FA] transition-colors shadow-[0_4px_12px_rgba(59,130,246,0.3)] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                  {isSaving ? "保存中..." : "保存"}
+                </motion.button>
               </div>
             </motion.div>
           </div>
